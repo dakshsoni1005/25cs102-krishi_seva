@@ -8,8 +8,9 @@ const register = asyncHandler(async (req, res) => {
 });
 
 const login = asyncHandler(async (req, res) => {
-  const { mobileNumber, password } = req.body;
-  const result = await authService.login(mobileNumber, password);
+  const { mobileNumber, email, identifier, password } = req.body;
+  const loginId = identifier || email || mobileNumber;
+  const result = await authService.login(loginId, password);
   return ApiResponse.success(res, result, "Logged in successfully");
 });
 

@@ -20,8 +20,13 @@ const registerSchema = z.object({
 });
 
 const loginSchema = z.object({
-  mobileNumber: z.string().regex(/^\d{10}$/, "Mobile number must be exactly 10 digits"),
+  mobileNumber: z.string().optional(),
+  email: z.string().optional(),
+  identifier: z.string().optional(),
   password: z.string().min(1, "Password is required")
+}).refine((data) => !!(data.identifier || data.email || data.mobileNumber), {
+  message: "Mobile number or Email address is required",
+  path: ["identifier"]
 });
 
 module.exports = {

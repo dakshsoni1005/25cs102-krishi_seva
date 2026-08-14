@@ -140,10 +140,10 @@ export const AppProvider = ({ children }) => {
     initData();
   }, [isAuthenticated]);
 
-  const loginUser = async (mobileNumber, password) => {
+  const loginUser = async (identifier, password) => {
     setLoading(true);
     try {
-      const res = await authService.login(mobileNumber, password);
+      const res = await authService.login(identifier, password);
       setFarmer(res.farmer);
       setLanguage(res.farmer.language || "en");
       setIsAuthenticated(true);

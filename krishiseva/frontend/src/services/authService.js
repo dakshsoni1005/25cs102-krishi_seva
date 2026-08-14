@@ -1,13 +1,20 @@
 import api from "./api";
 
 export const authService = {
-  login: async (mobileNumber, password) => {
-    if (!mobileNumber || !password) {
-      throw new Error("Mobile number and password are required.");
+  login: async (identifier, password) => {
+    if (!identifier || !password) {
+      throw new Error("Mobile number or email and password are required.");
     }
     
-    // Call backend endpoint
-    const response = await api.post("/auth/login", { mobileNumber, password });
+    // Call backend endpoint with identifier (and mobileNumber/email for maximum API compatibility)
+    const isEmail = identifier.includes("@");
+    const payload = {
+      identifier,
+      password,
+      ...(isEmail ? { email: identifier } : { mobileNumber: identifier })
+    };
+
+    const response = await api.post("/auth/login", payload);
     const { token, refreshToken, farmer } = response.data.data;
 
     // Cache session in storage

@@ -8,7 +8,7 @@ export const Login = () => {
   const { loginUser } = useApp();
   const navigate = useNavigate();
 
-  const [mobileNumber, setMobileNumber] = useState("");
+  const [loginIdentifier, setLoginIdentifier] = useState("");
   const [password, setPassword] = useState("");
   
   // Multi-mode auth layouts
@@ -16,17 +16,33 @@ export const Login = () => {
   const [otpSent, setOtpSent] = useState(false);
   const [otpCode, setOtpCode] = useState("");
   const [showForgot, setShowForgot] = useState(false);
-  const [forgotMobile, setForgotMobile] = useState("");
+  const [forgotIdentifier, setForgotIdentifier] = useState("");
   
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null);
 
   const handlePasswordLogin = async (e) => {
     e.preventDefault();
-    if (mobileNumber.length !== 10) {
-      setToast({ type: "error", message: "Please enter a valid 10-digit mobile number." });
+    const cleanId = loginIdentifier.trim();
+    if (!cleanId) {
+      setToast({ type: "error", message: "Please enter your mobile number or email address." });
       return;
     }
+
+    const isEmail = cleanId.includes("@");
+    if (isEmail) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(cleanId)) {
+        setToast({ type: "error", message: "Please enter a valid email address." });
+        return;
+      }
+    } else if (/^\d+$/.test(cleanId)) {
+      if (cleanId.length !== 10) {
+        setToast({ type: "error", message: "Please enter a valid 10-digit mobile number." });
+        return;
+      }
+    }
+
     if (!password) {
       setToast({ type: "error", message: "Password is required." });
       return;
@@ -34,7 +50,7 @@ export const Login = () => {
 
     setLoading(true);
     try {
-      await loginUser(mobileNumber, password);
+      await loginUser(cleanId, password);
       setToast({ type: "success", message: "Login successful! Redirecting..." });
       setTimeout(() => navigate("/dashboard"), 800);
     } catch (err) {
@@ -46,8 +62,9 @@ export const Login = () => {
 
   const handleSendOtp = (e) => {
     e.preventDefault();
-    if (mobileNumber.length !== 10) {
-      setToast({ type: "error", message: "Please enter a valid 10-digit mobile number." });
+    const cleanId = loginIdentifier.trim();
+    if (!cleanId) {
+      setToast({ type: "error", message: "Please enter your mobile number or email address." });
       return;
     }
     setLoading(true);
@@ -66,7 +83,7 @@ export const Login = () => {
     }
     setLoading(true);
     try {
-      await loginUser(mobileNumber, "mock-password-123");
+      await loginUser(loginIdentifier, "mock-password-123");
       setToast({ type: "success", message: "OTP Verified! Redirecting..." });
       setTimeout(() => navigate("/dashboard"), 800);
     } catch (err) {
@@ -78,14 +95,15 @@ export const Login = () => {
 
   const handleForgotSubmit = (e) => {
     e.preventDefault();
-    if (forgotMobile.length !== 10) {
-      setToast({ type: "error", message: "Please enter a valid 10-digit mobile number." });
+    const cleanId = forgotIdentifier.trim();
+    if (!cleanId) {
+      setToast({ type: "error", message: "Please enter your registered mobile number or email address." });
       return;
     }
     setLoading(true);
     setTimeout(() => {
       setLoading(false);
-      setToast({ type: "success", message: "Reset password SMS code sent to your registered mobile!" });
+      setToast({ type: "success", message: "Reset password instructions sent to your registered mobile or email!" });
       setShowForgot(false);
     }, 1000);
   };
@@ -135,14 +153,13 @@ export const Login = () => {
               {!isOtpMode ? (
                 <form onSubmit={handlePasswordLogin} className="space-y-4">
                   <Input
-                    label="Registered Mobile Number"
-                    id="mobileNumber"
-                    type="tel"
-                    placeholder="Enter 10-digit number"
+                    label="Mobile Number or Email Address"
+                    id="loginIdentifier"
+                    type="text"
+                    placeholder="Enter mobile number or email"
                     required
-                    maxLength={10}
-                    value={mobileNumber}
-                    onChange={(e) => setMobileNumber(e.target.value.replace(/\D/g, ""))}
+                    value={loginIdentifier}
+                    onChange={(e) => setLoginIdentifier(e.target.value)}
                   />
 
                   <div className="relative">
@@ -179,14 +196,13 @@ export const Login = () => {
                   {!otpSent ? (
                     <form onSubmit={handleSendOtp} className="space-y-4">
                       <Input
-                        label="Mobile Number"
+                        label="Mobile Number or Email"
                         id="mobileOtpNumber"
-                        type="tel"
-                        placeholder="Enter 10-digit number"
+                        type="text"
+                        placeholder="Enter mobile number or email"
                         required
-                        maxLength={10}
-                        value={mobileNumber}
-                        onChange={(e) => setMobileNumber(e.target.value.replace(/\D/g, ""))}
+                        value={loginIdentifier}
+                        onChange={(e) => setLoginIdentifier(e.target.value)}
                       />
                       <Button
                         type="submit"
@@ -200,7 +216,7 @@ export const Login = () => {
                   ) : (
                     <form onSubmit={handleVerifyOtp} className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-200">
                       <div className="bg-primary-50 text-primary-800 text-xs font-semibold p-3 rounded-lg border border-primary-100 mb-2">
-                        Verification Code sent to <b>{mobileNumber}</b>. Enter code <b>1234</b> to verify.
+                        Verification Code sent to <b>{loginIdentifier}</b>. Enter code <b>1234</b> to verify.
                       </div>
                       
                       <Input
@@ -246,18 +262,17 @@ export const Login = () => {
               </h3>
               
               <p className="text-xs text-text-muted leading-relaxed font-semibold">
-                Enter your registered mobile number below. We will send you an OTP link to configure a new account password.
+                Enter your registered mobile number or email address below. We will send you reset instructions to configure a new account password.
               </p>
               
               <Input
-                label="Registered Mobile Number"
-                id="forgotMobile"
-                type="tel"
-                placeholder="Enter 10-digit number"
+                label="Registered Mobile Number or Email"
+                id="forgotIdentifier"
+                type="text"
+                placeholder="Enter mobile number or email"
                 required
-                maxLength={10}
-                value={forgotMobile}
-                onChange={(e) => setForgotMobile(e.target.value.replace(/\D/g, ""))}
+                value={forgotIdentifier}
+                onChange={(e) => setForgotIdentifier(e.target.value)}
               />
 
               <div className="flex gap-2.5 pt-2">

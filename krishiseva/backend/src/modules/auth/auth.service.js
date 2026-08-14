@@ -124,11 +124,28 @@ const register = async (farmerData) => {
   }
 };
 
-const login = async (mobileNumber, password) => {
-  // 1. Search User by Phone (explicitly select passwordHash)
-  const user = await User.findOne({ phone: mobileNumber }).select("+passwordHash");
+const login = async (identifier, password) => {
+  if (!identifier || !password) {
+    const err = new Error("Mobile number/email and password are required.");
+    err.statusCode = 400;
+    err.code = "MISSING_CREDENTIALS";
+    throw err;
+  }
+
+  const cleanId = String(identifier).trim();
+  const isEmail = cleanId.includes("@");
+
+  // 1. Search User by Phone or Email (explicitly select passwordHash)
+  let user = await User.findOne(
+    isEmail ? { email: cleanId.toLowerCase() } : { phone: cleanId }
+  ).select("+passwordHash");
+
+  if (!user && !isEmail) {
+    user = await User.findOne({ email: cleanId.toLowerCase() }).select("+passwordHash");
+  }
+
   if (!user || !user.isActive) {
-    const err = new Error("Invalid mobile number or password.");
+    const err = new Error("Invalid mobile number/email or password.");
     err.statusCode = 401;
     err.code = "INVALID_CREDENTIALS";
     throw err;
@@ -137,7 +154,7 @@ const login = async (mobileNumber, password) => {
   // 2. Validate Password
   const isMatch = await bcrypt.compare(password, user.passwordHash);
   if (!isMatch) {
-    const err = new Error("Invalid mobile number or password.");
+    const err = new Error("Invalid mobile number/email or password.");
     err.statusCode = 401;
     err.code = "INVALID_CREDENTIALS";
     throw err;

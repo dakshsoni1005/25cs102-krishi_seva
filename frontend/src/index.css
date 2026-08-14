@@ -1,0 +1,63 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary-50: #f4faf6;
+  --color-primary-100: #e6f4ed;
+  --color-primary-200: #cce9db;
+  --color-primary-300: #99d2b7;
+  --color-primary-400: #66bc93;
+  --color-primary-500: #3ba474;
+  --color-primary-600: #2d855c;
+  --color-primary-700: #246a49;
+  --color-primary-800: #1b4332; /* Deep Agricultural Green */
+  --color-primary-900: #133326;
+  --color-primary-950: #0b1f17;
+
+  --color-accent-50: #f0fdf4;
+  --color-accent-100: #dcfce7;
+  --color-accent-200: #bbf7d0;
+  --color-accent-300: #86efac;
+  --color-accent-400: #4ade80;
+  --color-accent-500: #10b981; /* Fresh Green Accent */
+  --color-accent-600: #059669;
+  --color-accent-700: #047857;
+
+  --color-bg-warm: #fdfcf9; /* Warm Off-white */
+  --color-surface-soft: #f5f4ed; /* Soft Neutral Surface */
+  --color-border-soft: #e4e2d7; /* Subtle border */
+  --color-text-dark: #1e2522; /* Dark Slate-Green Text */
+}
+
+@layer base {
+  body {
+    @apply bg-bg-warm text-text-dark font-sans antialiased selection:bg-primary-100 selection:text-primary-800;
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-primary-200 rounded-full hover:bg-primary-300;
+}
+
+/* Shimmer Animation */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, #f5f4ed 25%, #e4e2d7 50%, #f5f4ed 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite linear;
+}

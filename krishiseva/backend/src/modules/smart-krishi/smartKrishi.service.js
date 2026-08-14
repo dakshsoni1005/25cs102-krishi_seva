@@ -100,6 +100,8 @@ const getLocalDataset = () => {
   if (cachedDataset) return cachedDataset;
   try {
     const candidatePaths = [
+      path.resolve(__dirname, "dataset.json", "gujarat_agri_dataset_districtwise (1).json"),
+      path.resolve(__dirname, "dataset.json", "gujarat_agri_dataset.json"),
       path.resolve(process.cwd(), "..", "smart_krishi", "naitri_project-main", "dataset.json", "gujarat_agri_dataset_districtwise (1).json"),
       path.resolve(__dirname, "..", "..", "..", "..", "..", "smart_krishi", "naitri_project-main", "dataset.json", "gujarat_agri_dataset_districtwise (1).json"),
       path.resolve(__dirname, "..", "..", "..", "..", "smart_krishi", "naitri_project-main", "dataset.json", "gujarat_agri_dataset_districtwise (1).json")

@@ -1,23 +1,7 @@
-import React, { useState, useEffect } from "react";
-import { useApp } from "../context/AppContext";
-import {
-  Card,
-  Button,
-  RecommendationCard,
-  LoadingSkeleton,
-  EmptyState,
-  PageHeader
-} from "../components/common";
-import {
-  Cpu,
-  SlidersHorizontal,
-  Info,
-  RefreshCw,
-  MapPin,
-  Sprout,
-  Sun
-} from "lucide-react";
-import { smartKrishiService } from "../services/smartKrishiService";
+import React, { useState } from "react";
+import { PageHeader } from "../components/common";
+import RecommendationForm from "../components/smart-krishi/RecommendationForm";
+import Loading from "../components/smart-krishi/Loading";
 import {
   AIRecommendationCard,
   SoilSuitabilityWarningCard,
@@ -30,325 +14,140 @@ import {
   PestCard,
   AdvisoryCard
 } from "../components/smart-krishi/SmartKrishiCards";
+import { getRecommendations } from "../services/smartKrishiService";
+import { HelpCircle, AlertOctagon } from "lucide-react";
 
 export const SmartKrishi = () => {
-  const { farmer, t, addLocalNotification } = useApp();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [validationError, setValidationError] = useState(null);
+  const [result, setResult] = useState(null);
+  const [queryParams, setQueryParams] = useState(null);
 
-  const [loading, setLoading] = useState(true);
-  const [resultPayload, setResultPayload] = useState(null);
-  const [recommendations, setRecommendations] = useState([]);
-  const [suitabilityWarning, setSuitabilityWarning] = useState(null);
-  const [pipelineSource, setPipelineSource] = useState("smart_krishi");
-  const [activeCategory, setActiveCategory] = useState("all");
-  const [activePriority, setActivePriority] = useState("all");
+  const handleFormSubmit = async (params) => {
+    setLoading(true);
+    setError("");
+    setValidationError(null);
+    setResult(null);
+    setQueryParams(params);
 
-  // Selection state parameters
-  const [selectedDistrict, setSelectedDistrict] = useState(farmer?.district || "Rajkot");
-  const [selectedCrop, setSelectedCrop] = useState(farmer?.mainCrop || "Cotton");
-  const [selectedSeason, setSelectedSeason] = useState("Kharif");
-
-  const districtsList = [
-    "Ahmedabad", "Amreli", "Anand", "Aravalli", "Banaskantha", "Bharuch", "Bhavnagar",
-    "Botad", "Chhota Udepur", "Dahod", "Dang", "Devbhoomi Dwarka", "Gandhinagar",
-    "Gir Somnath", "Jamnagar", "Junagadh", "Kachchh", "Kheda", "Mahisagar", "Mehsana",
-    "Morbi", "Narmada", "Navsari", "Panchmahal", "Patan", "Porbandar", "Rajkot",
-    "Sabarkantha", "Surat", "Surendranagar", "Tapi", "Vadodara", "Valsad"
-  ];
-  const cropsList = ["Cotton", "Groundnut", "Wheat", "Bajra", "Paddy", "Castor", "Mustard", "Sesame", "Sugarcane", "Tobacco"];
-  const seasonsList = ["Kharif", "Rabi", "Zaid"];
-
-  const categories = [
-    { id: "all", label: "All Advisors" },
-    { id: "Irrigation", label: "Irrigation" },
-    { id: "Fertilizer", label: "Fertilizers" },
-    { id: "Pest", label: "Pest Control" },
-    { id: "Weather", label: "Weather Warnings" },
-    { id: "Market", label: "Market Timing" }
-  ];
-
-  const priorities = [
-    { id: "all", label: "All Priorities" },
-    { id: "HIGH", label: "High Priority" },
-    { id: "MEDIUM", label: "Medium Priority" },
-    { id: "LOW", label: "Low Priority" }
-  ];
-
-  const fetchPipelineRecs = async (overrideParams = {}) => {
     try {
-      setLoading(true);
-      setSuitabilityWarning(null);
-      setResultPayload(null);
-
-      const targetDistrict = overrideParams.district || selectedDistrict;
-      const targetCrop = overrideParams.crop || selectedCrop;
-      const targetSeason = overrideParams.season || selectedSeason;
-
-      const payload = {
-        district: targetDistrict,
-        crop: targetCrop,
-        season: targetSeason
-      };
-
-      const res = await smartKrishiService.getRecommendations(payload);
-
-      if (res) {
-        if (res.success === false || res.code === "CROP_NOT_SUITABLE") {
-          setSuitabilityWarning({
-            message: res.message || `Crop '${targetCrop}' is not suitable for ${targetDistrict}'s soil type.`,
-            suggestion: res.suggestion,
-            district: res.district || targetDistrict,
-            soilType: res.soilType,
-            recommendedCrops: res.recommendedCrops || []
-          });
-        } else {
-          setResultPayload(res.data ? res : { data: res, recommendation: res.recommendation });
-          setPipelineSource(res.source || "smart_krishi");
-
-          // Extract array recs if present
-          if (res.recommendations && Array.isArray(res.recommendations)) {
-            setRecommendations(res.recommendations);
-          } else if (res.data && Array.isArray(res.data.advisories)) {
-            const formatted = res.data.advisories.map((a, idx) => ({
-              id: `adv-${idx}`,
-              category: a.type || "General",
-              priority: a.level === "High" || a.level === "Critical" ? "HIGH" : "MEDIUM",
-              title: `${a.type || "Smart Krishi"} Advisory`,
-              explanation: a.message,
-              reason: "Smart Krishi automated soil-weather pipeline evaluation.",
-              action: "Apply advised agronomic precautions.",
-              benefit: a.message,
-              timestamp: new Date()
-            }));
-            setRecommendations(formatted);
-          }
-        }
+      const res = await getRecommendations(params);
+      
+      if (res && (res.success === false || res.code === "CROP_NOT_SUITABLE")) {
+        setValidationError({
+          message: res.message || `Crop '${params.crop}' is not suitable for ${params.district}'s soil type.`,
+          suggestion: res.suggestion || "Please choose a more suitable crop for this district's soil type.",
+          district: res.district || params.district,
+          soilType: res.soilType,
+          recommendedCrops: res.recommendedCrops || []
+        });
+      } else if (res && (res.success || res.data)) {
+        setResult(res);
+      } else {
+        setError("Failed to fetch recommendation data.");
       }
     } catch (err) {
-      console.error("Smart Krishi advisory pipeline error:", err);
+      console.error(err);
+      const resData = err.response?.data;
+      if (err.response?.status === 400 && resData && resData.success === false) {
+        setValidationError({
+          message: resData.message,
+          suggestion: resData.suggestion || "Please choose a more suitable crop for this district.",
+          recommendedCrops: resData.recommendedCrops
+        });
+      } else {
+        setError(resData?.message || err.message || "Failed to connect to Smart Krishi server.");
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchPipelineRecs();
-  }, []);
-
-  const handleResolveAction = (rec) => {
-    addLocalNotification(
-      "Recommendation Actioned",
-      `Successfully registered action for: "${rec.title}".`,
-      "AI Recommendation",
-      "medium"
-    );
-    alert(`Action initiated: ${rec.action}\n\nExpected Benefit: ${rec.benefit}`);
+  const handleSelectCrop = (cropName) => {
+    if (queryParams) {
+      handleFormSubmit({ ...queryParams, crop: cropName });
+    }
   };
-
-  const handleCropSwitch = (newCrop) => {
-    setSelectedCrop(newCrop);
-    fetchPipelineRecs({ crop: newCrop });
-  };
-
-  const filteredRecs = recommendations.filter((r) => {
-    const catMatch = activeCategory === "all" || (r.category && r.category.toLowerCase().includes(activeCategory.toLowerCase()));
-    const priMatch = activePriority === "all" || (r.priority && r.priority.toUpperCase() === activePriority.toUpperCase());
-    return catMatch && priMatch;
-  });
 
   return (
-    <div className="space-y-6 select-none">
+    <div className="space-y-8 select-none pb-12">
       
-      {/* Page Header */}
+      {/* Page Header Banner */}
       <PageHeader
-        title={t("smartKrishi")}
-        subtitle="Central AI decision support intelligence compiling weather forecasting, soil parameters, and crop requirements into direct field operations."
+        title="Smart Krishi Decision System"
+        subtitle="Select your local district coordinates, desired crop, and growing season to generate action-oriented agricultural field advisories."
       />
 
-      {/* 1. SELECTION & PIPELINE CONTROLS BOARD */}
-      <Card className="bg-white border border-border-soft p-5">
-        <div className="flex items-center justify-between border-b border-border-soft pb-3 mb-4">
-          <div className="flex items-center gap-2">
-            <Cpu className="w-5 h-5 text-primary-800 shrink-0" />
-            <h3 className="font-extrabold text-base text-text-dark leading-none">Smart Krishi Decision Pipeline</h3>
-          </div>
+      {/* 1. QUERY FILTER FORM */}
+      <RecommendationForm onSubmit={handleFormSubmit} />
 
-          <span className="text-[10px] bg-primary-50 text-primary-800 font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border border-primary-200">
-            Engine: {pipelineSource === "smart_krishi" ? "Smart Krishi Service" : "Gujarat Dataset Engine"}
-          </span>
-        </div>
+      {/* 2. DYNAMIC REPORT WRAPPER */}
+      <div>
+        {loading && <Loading key="loading-state" />}
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-          {/* District selector */}
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-bold text-text-muted flex items-center gap-1">
-              <MapPin className="w-3.5 h-3.5 text-primary-800" />
-              Target District
-            </label>
-            <select
-              value={selectedDistrict}
-              onChange={(e) => setSelectedDistrict(e.target.value)}
-              className="bg-surface-soft border border-border-soft text-text-dark text-xs rounded-lg px-3 py-2 font-bold outline-hidden focus:border-primary-800"
-            >
-              {districtsList.map((d) => (
-                <option key={d} value={d}>{d}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Crop selector */}
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-bold text-text-muted flex items-center gap-1">
-              <Sprout className="w-3.5 h-3.5 text-primary-800" />
-              Cultivated Crop
-            </label>
-            <select
-              value={selectedCrop}
-              onChange={(e) => setSelectedCrop(e.target.value)}
-              className="bg-surface-soft border border-border-soft text-text-dark text-xs rounded-lg px-3 py-2 font-bold outline-hidden focus:border-primary-800"
-            >
-              {cropsList.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Season selector */}
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-bold text-text-muted flex items-center gap-1">
-              <Sun className="w-3.5 h-3.5 text-primary-800" />
-              Cropping Season
-            </label>
-            <select
-              value={selectedSeason}
-              onChange={(e) => setSelectedSeason(e.target.value)}
-              className="bg-surface-soft border border-border-soft text-text-dark text-xs rounded-lg px-3 py-2 font-bold outline-hidden focus:border-primary-800"
-            >
-              {seasonsList.map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Submit refresh button */}
-          <Button
-            onClick={() => fetchPipelineRecs()}
-            disabled={loading}
-            className="w-full h-[38px] flex items-center justify-center gap-2"
+        {/* Advisory Query Error */}
+        {error && (
+          <div 
+            className="max-w-2xl mx-auto p-6 bg-rose-50 border border-rose-200 rounded-2xl text-center space-y-2"
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-            Evaluate Pipeline
-          </Button>
-        </div>
-      </Card>
+            <div className="flex items-center justify-center gap-2 text-rose-600 font-extrabold text-base">
+              <AlertOctagon className="w-6 h-6" />
+              <span>Advisory Query Error</span>
+            </div>
+            <p className="text-xs text-rose-800 font-medium">{error}</p>
+          </div>
+        )}
 
-      {/* 2. LOADING STATE */}
-      {loading && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <LoadingSkeleton />
-          <LoadingSkeleton />
-        </div>
-      )}
+        {/* Soil Suitability Warning Card */}
+        {validationError && (
+          <div className="max-w-3xl mx-auto">
+            <SoilSuitabilityWarningCard
+              warning={validationError}
+              onSelectCrop={handleSelectCrop}
+            />
+          </div>
+        )}
 
-      {/* 3. SOIL SUITABILITY WARNING (IF INCOMPATIBLE) */}
-      {!loading && suitabilityWarning && (
-        <SoilSuitabilityWarningCard
-          warning={suitabilityWarning}
-          onSelectCrop={handleCropSwitch}
-        />
-      )}
+        {/* Results Output Grid */}
+        {result && result.data && (
+          <div className="space-y-6">
+            {/* AI Advisor Panel */}
+            <AIRecommendationCard recommendation={result.recommendation} />
 
-      {/* 4. SMART KRISHI DATASET & AI RESULTS GRID */}
-      {!loading && resultPayload && (
-        <div className="space-y-6">
-          {/* AI Recommendation Summary Card */}
-          {resultPayload.recommendation && (
-            <AIRecommendationCard recommendation={resultPayload.recommendation} />
-          )}
+            {/* Warnings & Advisories */}
+            {result.data.advisories && (
+              <AdvisoryCard advisories={result.data.advisories} />
+            )}
 
-          {/* Dataset Breakdown Cards Grid */}
-          {resultPayload.data && (
+            {/* Environmental Parameters Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-              <SoilCard soil={resultPayload.data.soil} />
-              <WeatherCard weather={resultPayload.data.weather} />
-              <FertilizerCard fertilizers={resultPayload.data.fertilizers} />
-              <IrrigationCard irrigation={resultPayload.data.irrigation} />
-              <DiseaseCard diseases={resultPayload.data.diseases} />
-              <PestCard pests={resultPayload.data.pests} />
-              {resultPayload.data.weather && resultPayload.data.weather.forecast && (
+              <SoilCard soil={result.data.soil} />
+              <WeatherCard weather={result.data.weather} />
+              <FertilizerCard fertilizers={result.data.fertilizers} />
+              <IrrigationCard irrigation={result.data.irrigation} />
+              <DiseaseCard diseases={result.data.diseases} />
+              <PestCard pests={result.data.pests} />
+              
+              {/* Weather 7-Day Forecast */}
+              {result.data.weather && result.data.weather.forecast && (
                 <div className="md:col-span-2">
-                  <ForecastCard forecast={resultPayload.data.weather.forecast} />
-                </div>
-              )}
-              {resultPayload.data.advisories && (
-                <div className="md:col-span-2">
-                  <AdvisoryCard advisories={resultPayload.data.advisories} />
+                  <ForecastCard forecast={result.data.weather.forecast} />
                 </div>
               )}
             </div>
-          )}
-        </div>
-      )}
-
-      {/* 5. FILTER CONTROLS & ACTIONABLE RECOMMENDATION CARDS LIST */}
-      {!loading && recommendations.length > 0 && (
-        <div className="space-y-4 pt-4 border-t border-border-soft">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white border border-border-soft p-4 rounded-xl">
-            {/* Category Tabs */}
-            <div className="flex items-center gap-2 overflow-x-auto pb-2 md:pb-0 scrollbar-none">
-              {categories.map((cat) => (
-                <button
-                  key={cat.id}
-                  onClick={() => setActiveCategory(cat.id)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap cursor-pointer transition-all ${
-                    activeCategory === cat.id
-                      ? "bg-primary-800 text-white"
-                      : "bg-surface-soft text-text-muted hover:bg-primary-100 hover:text-primary-800"
-                  }`}
-                >
-                  {cat.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Priority Filters */}
-            <div className="flex items-center gap-2 shrink-0">
-              <SlidersHorizontal className="w-4 h-4 text-text-muted shrink-0" />
-              <div className="flex bg-surface-soft p-0.5 rounded-lg border border-border-soft">
-                {priorities.map((pri) => (
-                  <button
-                    key={pri.id}
-                    onClick={() => setActivePriority(pri.id)}
-                    className={`px-3 py-1 text-[10px] font-bold uppercase rounded cursor-pointer transition-all ${
-                      activePriority === pri.id
-                        ? "bg-white text-primary-800 shadow-xs"
-                        : "text-text-muted hover:text-text-dark"
-                    }`}
-                  >
-                    {pri.label}
-                  </button>
-                ))}
-              </div>
-            </div>
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-            {filteredRecs.map((rec) => (
-              <RecommendationCard
-                key={rec.id}
-                recommendation={rec}
-                onActionClick={handleResolveAction}
-              />
-            ))}
+        )}
+        
+        {/* Empty State Prompt */}
+        {!loading && !result && !error && !validationError && (
+          <div className="flex flex-col items-center justify-center p-16 text-center text-slate-400 bg-white/40 rounded-3xl border border-slate-200/60 max-w-md mx-auto">
+            <HelpCircle className="w-12 h-12 mb-3 text-slate-300" />
+            <p className="text-sm font-semibold leading-relaxed m-0 text-slate-600">
+              No query results loaded. Select your parameters in the form above and click <b>Generate Plan</b> to query agricultural conditions.
+            </p>
           </div>
-        </div>
-      )}
-
-      {/* 6. FOOTER ARCHITECTURE NOTE */}
-      <div className="flex items-start gap-2.5 bg-primary-50 text-primary-800 border border-primary-100 rounded-xl p-4 text-xs leading-relaxed font-semibold">
-        <Info className="w-5 h-5 text-primary-800 shrink-0 mt-0.5" />
-        <div>
-          <b>Smart Krishi Integrated Architecture:</b> Live parameters ({selectedDistrict}, {selectedCrop}, {selectedSeason}) are evaluated against the Smart Krishi agronomy dataset, soil suitability matrices, weather telemetry, and AI models.
-        </div>
+        )}
       </div>
 
     </div>

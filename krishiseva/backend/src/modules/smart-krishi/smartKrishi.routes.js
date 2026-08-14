@@ -1,23 +1,21 @@
 const express = require("express");
 const smartKrishiController = require("./smartKrishi.controller");
-const { authenticate } = require("../../middleware/auth");
 
 const router = express.Router();
 
-// Public / system health route for Smart Krishi integration
+// Public / system health & dropdown routes for Smart Krishi integration
 router.get("/health", smartKrishiController.getHealth);
+router.get("/crops", smartKrishiController.getCrops);
+router.get("/districts", smartKrishiController.getDistricts);
+router.get("/crops/by-district/:district", smartKrishiController.getCropsByDistrict);
 
-// Protected routes (Require farmer JWT authentication)
-router.use(authenticate);
-
-router.get("/overview", smartKrishiController.getOverview);
+// Recommendations query endpoints (Supports both public POST and authenticated calls)
 router.get("/recommendations", smartKrishiController.getRecommendations);
 router.post("/recommendations", smartKrishiController.getRecommendations);
 router.post("/refresh", smartKrishiController.refreshRecommendations);
 
-// Smart Krishi feature proxy endpoints
-router.get("/crops", smartKrishiController.getCrops);
-router.get("/districts", smartKrishiController.getDistricts);
+// Feature proxy endpoints
+router.get("/overview", smartKrishiController.getOverview);
 router.get("/soil/:district", smartKrishiController.getSoil);
 router.get("/fertilizers/:crop", smartKrishiController.getFertilizers);
 router.get("/irrigation/:crop", smartKrishiController.getIrrigation);

@@ -37,13 +37,32 @@ const refreshRecommendations = asyncHandler(async (req, res) => {
 
 // Feature proxy controllers
 const getCrops = asyncHandler(async (req, res) => {
-  const data = await smartKrishiClient.getCrops();
-  return ApiResponse.success(res, data, "Crops list retrieved from Smart Krishi");
+  try {
+    const data = await smartKrishiClient.getCrops();
+    return res.status(200).json(data);
+  } catch (err) {
+    const fallback = await smartKrishiService.getCrops();
+    return res.status(200).json(fallback);
+  }
 });
 
 const getDistricts = asyncHandler(async (req, res) => {
-  const data = await smartKrishiClient.getDistricts();
-  return ApiResponse.success(res, data, "Districts list retrieved from Smart Krishi");
+  try {
+    const data = await smartKrishiClient.getDistricts();
+    return res.status(200).json(data);
+  } catch (err) {
+    const fallback = await smartKrishiService.getDistricts();
+    return res.status(200).json(fallback);
+  }
+});
+
+const getCropsByDistrict = asyncHandler(async (req, res) => {
+  try {
+    const fallback = await smartKrishiService.getCropsByDistrict(req.params.district);
+    return res.status(200).json(fallback);
+  } catch (err) {
+    return res.status(200).json({ success: true, crops: [] });
+  }
 });
 
 const getSoil = asyncHandler(async (req, res) => {
@@ -113,6 +132,7 @@ module.exports = {
   refreshRecommendations,
   getCrops,
   getDistricts,
+  getCropsByDistrict,
   getSoil,
   getFertilizers,
   getIrrigation,

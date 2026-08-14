@@ -16,7 +16,14 @@ export const useApp = () => {
 
 export const AppProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(authService.isAuthenticated());
-  const [farmer, setFarmer] = useState(null);
+  const [farmer, setFarmer] = useState(() => {
+    try {
+      const cached = localStorage.getItem("krishiseva_farmer");
+      return cached ? JSON.parse(cached) : { fullName: "Farmer", district: "Rajkot", village: "Rajkot", mainCrop: "Cotton" };
+    } catch (e) {
+      return { fullName: "Farmer", district: "Rajkot", village: "Rajkot", mainCrop: "Cotton" };
+    }
+  });
   const [farms, setFarms] = useState([]);
   const [selectedFarm, setSelectedFarm] = useState("Hadgud Block A");
   const [selectedCropId, setSelectedCropId] = useState(null);
@@ -110,15 +117,17 @@ export const AppProvider = ({ children }) => {
       try {
         if (isAuthenticated) {
           const profile = await authService.getCurrentFarmer();
-          setFarmer(profile);
-          setLanguage(profile.language || "en");
+          if (profile) {
+            setFarmer(profile);
+            setLanguage(profile.language || "en");
+          }
           
           const notifs = await notificationService.getNotifications();
-          setNotifications(notifs);
+          setNotifications(notifs || []);
 
           const farmList = await farmService.getFarms();
-          setFarms(farmList);
-          if (farmList.length > 0) {
+          setFarms(farmList || []);
+          if (farmList && farmList.length > 0) {
             setSelectedFarm(farmList[0].name);
           }
         }

@@ -50,24 +50,21 @@ export const Dashboard = () => {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
-        // Load data from services in parallel
         const [wData, sData, cData, mData, rData, scData] = await Promise.all([
-          weatherService.getWeatherData(farmer?.state, farmer?.district, farmer?.taluka, farmer?.village),
-          soilService.getSoilData(farmer?.id),
+          weatherService.getWeatherData(farmer?.state || "Gujarat", farmer?.district || "Rajkot", farmer?.taluka, farmer?.village),
+          soilService.getSoilData(farmer?.id || "mock"),
           cropService.getActiveCrops(),
           marketService.getMarketPrices(),
           recommendationService.getRecommendations(),
           schemeService.getSchemes()
         ]);
 
-        setWeather(wData);
-        setSoil(sData);
-        setCrops(cData);
-        
-        // Filter markets to only show watchlisted or top 3 crops
-        setMarkets(mData.slice(0, 3));
-        setRecommendations(rData);
-        setSchemes(scData.slice(0, 2)); // Show 2 relevant schemes
+        setWeather(wData || null);
+        setSoil(sData || null);
+        setCrops(Array.isArray(cData) ? cData : []);
+        setMarkets(Array.isArray(mData) ? mData.slice(0, 3) : []);
+        setRecommendations(Array.isArray(rData) ? rData : []);
+        setSchemes(Array.isArray(scData) ? scData.slice(0, 2) : []);
       } catch (error) {
         console.error("Error loading dashboard data", error);
       } finally {
@@ -75,9 +72,7 @@ export const Dashboard = () => {
       }
     };
 
-    if (farmer) {
-      fetchDashboardData();
-    }
+    fetchDashboardData();
   }, [farmer]);
 
   const handleToggleTask = async (cropId, taskId, taskTitle) => {
@@ -131,11 +126,11 @@ export const Dashboard = () => {
   }
 
   // Find high priority recommendation to display prominently
-  const primaryRecommendation = recommendations.find((r) => r.priority === "HIGH") || recommendations[0];
+  const primaryRecommendation = (recommendations || []).find((r) => r.priority === "HIGH") || (recommendations || [])[0];
   
   // Collect all today's tasks across all active crops
-  const todaysTasks = crops.flatMap((c) => 
-    c.tasks.filter((t) => t.status === "today").map((t) => ({ ...t, cropName: c.name, cropId: c.id }))
+  const todaysTasks = (crops || []).flatMap((c) => 
+    (c.tasks || []).filter((t) => t.status === "today").map((t) => ({ ...t, cropName: c.name, cropId: c.id }))
   );
 
   return (
@@ -359,7 +354,7 @@ export const Dashboard = () => {
             </div>
             
             <div className="space-y-3">
-              {soil && Object.entries(soil.nutrients).map(([key, nutrient]) => {
+              {soil && soil.nutrients && Object.entries(soil.nutrients).map(([key, nutrient]) => {
                 const nameMap = { nitrogen: "N - Nitrogen", phosphorus: "P - Phosphorus", potassium: "K - Potassium", organicCarbon: "OC - Carbon" };
                 const barWidths = { Low: "w-1/3 bg-rose-500", Medium: "w-2/3 bg-amber-500", High: "w-full bg-emerald-600" };
                 return (

@@ -273,10 +273,46 @@ const formatRecommendations = (list) => {
   });
 };
 
+const getDistricts = async () => {
+  const dataset = getLocalDataset();
+  if (dataset) {
+    const districts = [...new Set(dataset.map((r) => r.location && r.location.district).filter(Boolean))].sort();
+    return { success: true, data: districts.map((d, i) => ({ _id: `dist-${i}`, name: d })) };
+  }
+  return { success: true, data: [] };
+};
+
+const getCrops = async () => {
+  const dataset = getLocalDataset();
+  if (dataset) {
+    const crops = [...new Set(dataset.map((r) => r.input && r.input.crop).filter(Boolean))].sort();
+    return { success: true, data: crops.map((c, i) => ({ _id: `crop-${i}`, name: c })) };
+  }
+  return { success: true, data: [] };
+};
+
+const getCropsByDistrict = async (districtName) => {
+  const dataset = getLocalDataset();
+  if (dataset && districtName) {
+    const matching = dataset.filter(
+      (r) => r.location && r.location.district && r.location.district.toLowerCase() === districtName.toLowerCase()
+    );
+    const crops = [...new Set(matching.map((r) => r.input && r.input.crop).filter(Boolean))].sort();
+    return { success: true, crops };
+  }
+  return {
+    success: true,
+    crops: ["Cotton", "Groundnut", "Wheat", "Bajra", "Paddy", "Castor", "Mustard", "Sesame", "Sugarcane", "Tobacco"]
+  };
+};
+
 module.exports = {
   getRecommendations,
   getDatasetRecommendation,
   refreshRecommendations,
-  getOverviewStats
+  getOverviewStats,
+  getDistricts,
+  getCrops,
+  getCropsByDistrict
 };
 

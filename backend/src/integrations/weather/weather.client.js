@@ -2,112 +2,121 @@ const axios = require("axios");
 const env = require("../../config/env");
 const logger = require("../../utils/logger");
 
-const fetchWeatherFromProvider = async (lat = 22.5694, lon = 72.9904) => {
+const weatherCodeMap = {
+  0: "Clear Sky",
+  1: "Mainly Clear",
+  2: "Partly Cloudy",
+  3: "Overcast",
+  45: "Foggy",
+  48: "Depositing Rime Fog",
+  51: "Light Drizzle",
+  53: "Moderate Drizzle",
+  55: "Dense Drizzle",
+  61: "Slight Rain",
+  63: "Moderate Rain",
+  65: "Heavy Rain",
+  80: "Slight Rain Showers",
+  81: "Moderate Rain Showers",
+  82: "Violent Rain Showers",
+  95: "Thunderstorm"
+};
+
+const fetchWeatherData = async (latitude = 22.5694, longitude = 72.9904) => {
+  const startTime = Date.now();
+  const baseUrl = env.WEATHER_API_URL || "https://api.open-meteo.com";
+  
   try {
-    const url = `${env.WEATHER_API_URL}/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto`;
-    
-    logger.info(`Fetching live weather from Open-Meteo for coordinates: ${lat}, ${lon}`);
-    const res = await axios.get(url);
-    const data = res.data;
+    const url = `${baseUrl}/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true&hourly=temperature_2m,relative_humidity_2m,precipitation_probability&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max&timezone=auto`;
 
-    // Map Open-Meteo parameters to KrishiSeva standard
-    const current = {
-      temp: Math.round(data.current.temperature_2m),
-      humidity: data.current.relative_humidity_2m,
-      windSpeed: Math.round(data.current.wind_speed_10m),
-      windDir: "SW", // open-meteo wind dir mapping could be added, defaults to SW
-      rainProbability: data.daily.precipitation_probability_max[0] || 0,
-      condition: (data.daily.precipitation_probability_max[0] || 0) > 70 ? "Heavy Rain" : "Partly Cloudy",
-      uvIndex: 6,
-      feelsLike: Math.round(data.current.temperature_2m) + 3,
-      sunrise: "06:12 AM",
-      sunset: "07:05 PM"
-    };
+    const response = await axios.get(url, { timeout: 8000 });
+    const latency = Date.now() - startTime;
+    logger.info(`Open-Meteo Weather API query successful (${latitude}, ${longitude}) in ${latency}ms`);
 
-    const days = ["Today", "Tomorrow", "Mon", "Tue", "Wed", "Thu", "Fri"];
-    const forecast = data.daily.time.slice(0, 7).map((time, idx) => {
-      const prob = data.daily.precipitation_probability_max[idx] || 0;
-      let condition = "Mostly Sunny";
-      let icon = "sun";
-      
-      if (prob > 80) {
-        condition = "Heavy Rain";
-        icon = "cloud-rain";
-      } else if (prob > 50) {
-        condition = "Partly Cloudy";
-        icon = "cloud-sun-rain";
-      } else if (prob > 20) {
-        condition = "Showers";
-        icon = "cloud-drizzle";
-      }
+    const data = response.data;
+    const current = data.current_weather || {};
+    const dailyData = data.daily || {};
+    const hourlyData = data.hourly || {};
 
+    const conditionText = weatherCodeMap[current.weathercode] || "Partly Cloudy";
+    const currentRainProb = hourlyData.precipitation_probability ? hourlyData.precipitation_probability[0] : 15;
+    const currentHumidity = hourlyData.relative_humidity_2m ? hourlyData.relative_humidity_2m[0] : 62;
+
+    // Build 5-day daily forecast array
+    const forecastDays = (dailyData.time || []).slice(0, 5).map((time, idx) => {
+      const dateObj = new Date(time);
+      const dayName = dateObj.toLocaleDateString("en-US", { weekday: "short" });
       return {
-        day: idx === 0 ? "Today" : idx === 1 ? "Tomorrow" : days[idx] || "Day",
-        temp: Math.round(data.daily.temperature_2m_max[idx]),
-        minTemp: Math.round(data.daily.temperature_2m_min[idx]),
-        condition,
-        rainProb: prob,
-        icon
+        day: dayName,
+        date: time,
+        maxTemp: Math.round(dailyData.temperature_2m_max?.[idx] || 32),
+        minTemp: Math.round(dailyData.temperature_2m_min?.[idx] || 22),
+        rainProbability: dailyData.precipitation_probability_max?.[idx] || 10,
+        precipitationMm: dailyData.precipitation_sum?.[idx] || 0
       };
     });
 
+    // Generate alerts if severe conditions exist
     const alerts = [];
-    if (current.rainProbability > 80) {
+    if (currentRainProb > 70) {
       alerts.push({
-        id: `alert-rain-${Date.now()}`,
-        type: "rain",
-        severity: "high",
-        title: "Heavy Rainfall Warning",
-        description: "Heavy thunder showers expected within the next 24 hours.",
-        action: "Delay scheduled irrigation, ensure drainage channels are clear, and secure harvested bags."
+        id: "alert-rain",
+        title: "High Precipitation Expected",
+        message: `Rain probability is ${currentRainProb}%. Delay spraying and drip irrigation cycles.`,
+        priority: "high"
+      });
+    }
+    if (current.temperature > 38) {
+      alerts.push({
+        id: "alert-heat",
+        title: "Extreme Heat Stress Warning",
+        message: `Temperature reached ${current.temperature}°C. Ensure crop hydration.`,
+        priority: "medium"
       });
     }
 
     return {
-      current,
-      forecast,
-      alerts
+      current: {
+        temp: Math.round(current.temperature || 31),
+        condition: conditionText,
+        humidity: currentHumidity,
+        windSpeed: `${Math.round(current.windspeed || 12)} km/h`,
+        rainProbability: currentRainProb
+      },
+      forecast: forecastDays,
+      alerts,
+      source: "Open-Meteo",
+      isLive: true,
+      lastUpdated: new Date()
     };
   } catch (error) {
-    logger.error(`Open-Meteo weather fetch failed: ${error.message}. Returning fallback forecasts.`);
-    
-    // Static Fallback
+    const latency = Date.now() - startTime;
+    logger.error(`Open-Meteo Weather API Call Failed (${latency}ms): ${error.message}`);
+
+    // Fallback static weather object if external API fails
     return {
       current: {
         temp: 31,
-        humidity: 78,
-        windSpeed: 14,
-        windDir: "SW",
-        rainProbability: 85,
         condition: "Partly Cloudy",
-        uvIndex: 6,
-        feelsLike: 35,
-        sunrise: "06:12 AM",
-        sunset: "07:05 PM"
+        humidity: 65,
+        windSpeed: "12 km/h",
+        rainProbability: 15
       },
       forecast: [
-        { day: "Today", temp: 31, minTemp: 25, condition: "Partly Cloudy", rainProb: 85, icon: "cloud-sun-rain" },
-        { day: "Tomorrow", temp: 28, minTemp: 24, condition: "Heavy Rain", rainProb: 95, icon: "cloud-rain" },
-        { day: "Mon", temp: 29, minTemp: 24, condition: "Thunderstorms", rainProb: 90, icon: "cloud-lightning" },
-        { day: "Tue", temp: 30, minTemp: 25, condition: "Showers", rainProb: 75, icon: "cloud-drizzle" },
-        { day: "Wed", temp: 32, minTemp: 26, condition: "Mostly Sunny", rainProb: 20, icon: "sun" },
-        { day: "Thu", temp: 33, minTemp: 26, condition: "Sunny", rainProb: 10, icon: "sun" },
-        { day: "Fri", temp: 33, minTemp: 27, condition: "Sunny", rainProb: 15, icon: "sun" }
+        { day: "Today", maxTemp: 33, minTemp: 24, rainProbability: 15 },
+        { day: "Tomorrow", maxTemp: 32, minTemp: 23, rainProbability: 80 },
+        { day: "Wed", maxTemp: 30, minTemp: 22, rainProbability: 40 },
+        { day: "Thu", maxTemp: 34, minTemp: 25, rainProbability: 10 },
+        { day: "Fri", maxTemp: 35, minTemp: 25, rainProbability: 5 }
       ],
-      alerts: [
-        {
-          id: "fallback-alert-1",
-          type: "rain",
-          severity: "high",
-          title: "Heavy Rainfall Warning",
-          description: "Heavy thunder showers expected in Anand district tomorrow.",
-          action: "Delay irrigation for 24-48 hours. Postpone chemical fertilization application."
-        }
-      ]
+      alerts: [],
+      source: "Cached Fallback",
+      isLive: false,
+      lastUpdated: new Date()
     };
   }
 };
 
 module.exports = {
-  fetchWeatherFromProvider
+  fetchWeatherData,
+  fetchWeatherFromProvider: fetchWeatherData
 };

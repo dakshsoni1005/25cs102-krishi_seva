@@ -8,14 +8,14 @@ const getMarketPrices = async (filters = {}) => {
   
   if (search) {
     query.$or = [
-      { crop: { $regex: search, $options: "i" } },
+      { cropName: { $regex: search, $options: "i" } },
       { market: { $regex: search, $options: "i" } },
       { district: { $regex: search, $options: "i" } }
     ];
   }
 
   if (crop) {
-    query.crop = { $regex: `^${crop}$`, $options: "i" };
+    query.cropName = { $regex: `^${crop}$`, $options: "i" };
   }
 
   if (district) {
@@ -30,28 +30,35 @@ const getMarketPrices = async (filters = {}) => {
     } else if (sortBy === "price_asc") {
       prices.sort({ modalPrice: 1 });
     } else if (sortBy === "crop") {
-      prices.sort({ crop: 1 });
+      prices.sort({ cropName: 1 });
     }
   }
 
   const results = await prices.lean();
   
-  // Format results for frontend service compatibility
+  // Format results for frontend service compatibility with normalized fields
   return results.map((r) => ({
     id: r._id.toString(),
-    crop: r.crop,
+    crop: r.cropName,
+    cropName: r.cropName,
     market: r.market,
-    location: `${r.district}, ${r.state}`,
+    district: r.district,
+    state: r.state || "Gujarat",
+    location: `${r.district}, ${r.state || "Gujarat"}`,
     minPrice: r.minPrice,
     maxPrice: r.maxPrice,
     avgPrice: r.modalPrice,
-    lastUpdated: r.date.toISOString().split("T")[0],
-    trend: r.trend
+    modalPrice: r.modalPrice,
+    unit: r.unit || "quintal",
+    currency: "INR",
+    lastUpdated: r.date ? new Date(r.date).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
+    trend: r.trend || "stable",
+    source: r.source || "APMC Market Feed",
+    isLive: false // Indicates seeded APMC rate feed vs active external API key
   }));
 };
 
 const getPriceTrends = async (cropName) => {
-  // Return static 6-month historical database matching the frontend mock trends
   const mockPriceTrends = {
     "Cotton": [
       { month: "Mar", price: 6800 },

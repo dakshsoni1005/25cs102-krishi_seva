@@ -31,7 +31,39 @@ const authLimiter = rateLimit({
   }
 });
 
+const aiGuruLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 30, // Limit AI chats to 30 queries per 15 minutes
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req, res) => {
+    ApiResponse.error(
+      res,
+      "AI Guru rate limit exceeded. Please wait a few minutes before asking more questions.",
+      429,
+      "AI_RATE_LIMIT"
+    );
+  }
+});
+
+const pestScannerLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 15, // Limit image scans to 15 per 15 minutes
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req, res) => {
+    ApiResponse.error(
+      res,
+      "Pest scanning rate limit exceeded. Please wait a few minutes before analyzing more leaf photos.",
+      429,
+      "SCANNER_RATE_LIMIT"
+    );
+  }
+});
+
 module.exports = {
   apiLimiter,
-  authLimiter
+  authLimiter,
+  aiGuruLimiter,
+  pestScannerLimiter
 };

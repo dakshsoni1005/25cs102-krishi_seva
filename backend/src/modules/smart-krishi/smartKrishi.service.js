@@ -2,15 +2,15 @@ const AIRecommendation = require("../../database/models/AIRecommendation");
 const FarmerProfile = require("../../database/models/FarmerProfile");
 const SoilProfile = require("../../database/models/SoilProfile");
 const CropCycle = require("../../database/models/CropCycle");
-const CropTask = require("../../database/models/CropTask");
+const PestScan = require("../../database/models/PestScan");
 const { fetchWeatherFromProvider } = require("../../integrations/weather/weather.client");
-const MarketPrice = require("../../database/models/MarketPrice");
+const { evaluateAllRules } = require("./rules");
 const logger = require("../../utils/logger");
 
 const getRecommendations = async (farmerId) => {
-  let recs = await AIRecommendation.find({ farmerId }).lean();
+  let recs = await AIRecommendation.find({ farmerId }).sort({ createdAt: -1 }).lean();
   
-  // If empty, trigger a mock rules refresh to populate initially
+  // If empty, trigger rules engine to evaluate recommendations initially
   if (recs.length === 0) {
     recs = await refreshRecommendations(farmerId);
   }
@@ -19,14 +19,17 @@ const getRecommendations = async (farmerId) => {
 };
 
 const refreshRecommendations = async (farmerId) => {
-  logger.info(`Re-evaluating agronomy rules engine for farmer: ${farmerId}`);
+  logger.info(`Evaluating Smart Krishi Rule Engine for farmer: ${farmerId}`);
 
-  // 1. Gather all inputs
-  const profile = await FarmerProfile.findOne({ userId: farmerId });
-  const soil = await SoilProfile.findOne({ farmerId });
-  const crops = await CropCycle.find({ farmerId, status: "active" });
+  // 1. Gather context
+  const [profile, soil, crops, pestScans] = await Promise.all([
+    FarmerProfile.findOne({ userId: farmerId }),
+    SoilProfile.findOne({ farmerId }),
+    CropCycle.find({ farmerId, status: "active" }),
+    PestScan.find({ farmerId }).sort({ createdAt: -1 }).limit(3)
+  ]);
   
-  // Coordinates for Anand or profile mapping
+  // Determine coordinates
   let lat = 22.5694;
   let lon = 72.9904;
   if (profile && profile.district === "Rajkot") {
@@ -35,85 +38,42 @@ const refreshRecommendations = async (farmerId) => {
   }
   const weather = await fetchWeatherFromProvider(lat, lon);
 
-  // Clear existing recommendation records
+  // 2. Evaluate all rules
+  const evaluated = evaluateAllRules({ profile, soil, crops, pestScans, weather });
+
+  // Clear existing recommendation records for this farmer
   await AIRecommendation.deleteMany({ farmerId });
 
-  const newRecs = [];
+  const newRecs = evaluated.map((r) => ({
+    farmerId,
+    type: r.type || "general",
+    priority: r.priority || "medium",
+    title: r.title,
+    description: r.description,
+    reason: r.reason,
+    action: r.action,
+    source: "rule_engine",
+    metadata: {
+      benefit: r.description
+    }
+  }));
 
-  // ==========================================
-  // agronomic rule 1: IRRIGATION vs RAINFALL
-  // ==========================================
-  if (weather.current.rainProbability > 70) {
-    newRecs.push({
-      farmerId,
-      type: "irrigation",
-      priority: "high",
-      title: "Rain Expected: Delay Next Irrigation Cycle",
-      description: `Weather forecast indicates a high probability (${weather.current.rainProbability}%) of heavy rain in your village. Irrigation now will cause waterlogging.`,
-      reason: `Precipitation probability exceeds 70% under SW wind directions.`,
-      action: "Delay irrigation for 24-48 hours. Inspect field drainage blocks.",
-      source: "rule_engine",
-      metadata: {
-        benefit: "Prevents root saturation, limits nutrient leaching, and saves water."
-      }
-    });
-  } else {
+  // Fallback if no specific rule triggered
+  if (newRecs.length === 0) {
     newRecs.push({
       farmerId,
       type: "irrigation",
       priority: "medium",
-      title: "Monitor Soil Moisture",
-      description: `Weather is clear, but soil moisture is currently at ${soil ? soil.moisture : 30}%. Maintain regular intervals.`,
-      reason: `No heavy rainfall forecasted for the next 5 days.`,
-      action: "Maintain normal irrigation intervals for active blocks.",
+      title: "Optimal Weather Conditions",
+      description: "Weather conditions are clear. Maintain standard irrigation and crop monitoring routines.",
+      reason: "No acute rain, drought, or pest threats detected.",
+      action: "Maintain regular drip irrigation schedules.",
       source: "rule_engine",
-      metadata: {
-        benefit: "Ensures uniform plant moisture feeds."
-      }
+      metadata: { benefit: "Ensures stable vegetative plant growth." }
     });
   }
 
-  // ==========================================
-  // agronomic rule 2: SOIL NPK DEFICIENCIES
-  // ==========================================
-  if (soil && soil.nitrogen < 200) {
-    newRecs.push({
-      farmerId,
-      type: "fertilizer",
-      priority: "medium",
-      title: "Nitrogen Deficient: Schedule Urea Top Dressing",
-      description: `Your soil test reports low nitrogen levels (${soil.nitrogen} kg/ha vs ideal >280 kg/ha).`,
-      reason: `Chlorophyll production will decrease, causing leaf yellowing.`,
-      action: "Apply 50 kg/acre of Urea. Spread on damp soil.",
-      source: "rule_engine",
-      metadata: {
-        benefit: "Restores vegetative leaf growth rate and color."
-      }
-    });
-  }
-
-  // ==========================================
-  // agronomic rule 3: MARKET PRICE PEAKS
-  // ==========================================
-  const cottonAPMC = await MarketPrice.findOne({ cropName: "Cotton" }).sort({ modalPrice: -1 });
-  if (cottonAPMC && cottonAPMC.modalPrice > 7000) {
-    newRecs.push({
-      farmerId,
-      type: "market",
-      priority: "low",
-      title: "Cotton Price Peak: Liquidate Stored Stocks",
-      description: `APMC rates for Cotton have touched ₹${cottonAPMC.modalPrice}/quintal, representing a seasonal high.`,
-      reason: `Short-term supply shortages in spinning mills are driving rates up.`,
-      action: "Liquidate 30-40% of stored cotton inventory immediately.",
-      source: "rule_engine",
-      metadata: {
-        benefit: "Locks in optimal margins before harvest volume imports flatten prices."
-      }
-    });
-  }
-
-  const seeded = await AIRecommendation.create(newRecs);
-  return seeded;
+  return await AIRecommendation.create(newRecs);
 };
 
 const getOverviewStats = async (farmerId) => {
@@ -139,8 +99,7 @@ const getOverviewStats = async (farmerId) => {
 
 const formatRecommendations = (list) => {
   return list.map((r) => {
-    // Map category name back to capitalized format
-    const categoryDisplay = r.type ? r.type.charAt(0).toUpperCase() + r.type.slice(1) : "Other";
+    const categoryDisplay = r.type ? r.type.charAt(0).toUpperCase() + r.type.slice(1) : "General";
     
     return {
       id: r._id ? r._id.toString() : "rec-mock",

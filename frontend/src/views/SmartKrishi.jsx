@@ -33,7 +33,13 @@ export const SmartKrishi = () => {
   const [selectedCrop, setSelectedCrop] = useState(farmer?.mainCrop || "Cotton");
   const [selectedSeason, setSelectedSeason] = useState("Kharif");
 
-  const districtsList = ["Rajkot", "Anand", "Patan", "Surat", "Kachchh", "Ahmedabad", "Mehsana"];
+  const districtsList = [
+    "Ahmedabad", "Amreli", "Anand", "Aravalli", "Banaskantha", "Bharuch", "Bhavnagar",
+    "Botad", "Chhota Udepur", "Dahod", "Dang", "Devbhoomi Dwarka", "Gandhinagar",
+    "Gir Somnath", "Jamnagar", "Junagadh", "Kachchh", "Kheda", "Mahisagar", "Mehsana",
+    "Morbi", "Narmada", "Navsari", "Panchmahal", "Patan", "Porbandar", "Rajkot",
+    "Sabarkantha", "Surat", "Surendranagar", "Tapi", "Vadodara", "Valsad"
+  ];
   const cropsList = ["Cotton", "Groundnut", "Wheat", "Bajra", "Paddy", "Castor", "Mustard", "Sesame", "Sugarcane", "Tobacco"];
   const seasonsList = ["Kharif", "Rabi", "Zaid"];
 

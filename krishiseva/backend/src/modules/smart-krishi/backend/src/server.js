@@ -4,11 +4,12 @@ const dotenv = require('dotenv');
 
 dotenv.config();
 
-// Connect to Database
-connectDB();
+const PORT = process.env.PORT || 5001;
 
-const PORT = process.env.PORT || 5000;
+connectDB().catch((err) => {
+  console.log(`Database connection fallback active: ${err.message}`);
+});
 
 app.listen(PORT, () => {
-  console.log(`Server running in development mode on port ${PORT}`);
+  console.log(`Smart Krishi Server running in development mode on port ${PORT}`);
 });

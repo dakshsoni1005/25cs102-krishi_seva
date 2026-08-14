@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { authService } from "../services/authService";
+import { farmerService } from "../services/farmerService";
+import { farmService } from "../services/farmService";
 import { notificationService } from "../services/notificationService";
 
 const AppContext = createContext();
@@ -15,13 +17,14 @@ export const useApp = () => {
 export const AppProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(authService.isAuthenticated());
   const [farmer, setFarmer] = useState(null);
-  const [selectedFarm, setSelectedFarm] = useState("Hadgud Block A"); // Mock selected farm
+  const [farms, setFarms] = useState([]);
+  const [selectedFarm, setSelectedFarm] = useState("Hadgud Block A");
   const [selectedCropId, setSelectedCropId] = useState(null);
   const [language, setLanguage] = useState("en"); // en, hi, gu
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Simple translation dictionary for major UI elements to support i18n architectural readiness
+  // Simple translation dictionary for major UI elements
   const translations = {
     en: {
       dashboard: "Dashboard",
@@ -101,7 +104,7 @@ export const AppProvider = ({ children }) => {
     return translations[language]?.[key] || translations["en"]?.[key] || key;
   };
 
-  // Fetch initial profile and notifications if authenticated
+  // Fetch initial profile, farms and notifications if authenticated
   useEffect(() => {
     const initData = async () => {
       try {
@@ -112,6 +115,12 @@ export const AppProvider = ({ children }) => {
           
           const notifs = await notificationService.getNotifications();
           setNotifications(notifs);
+
+          const farmList = await farmService.getFarms();
+          setFarms(farmList);
+          if (farmList.length > 0) {
+            setSelectedFarm(farmList[0].name);
+          }
         }
       } catch (err) {
         console.error("Failed to load initial farmer data", err);
@@ -129,6 +138,13 @@ export const AppProvider = ({ children }) => {
       setFarmer(res.farmer);
       setLanguage(res.farmer.language || "en");
       setIsAuthenticated(true);
+
+      const farmList = await farmService.getFarms();
+      setFarms(farmList);
+      if (farmList.length > 0) {
+        setSelectedFarm(farmList[0].name);
+      }
+
       return res;
     } finally {
       setLoading(false);
@@ -142,6 +158,13 @@ export const AppProvider = ({ children }) => {
       setFarmer(res.farmer);
       setLanguage(res.farmer.language || "en");
       setIsAuthenticated(true);
+
+      const farmList = await farmService.getFarms();
+      setFarms(farmList);
+      if (farmList.length > 0) {
+        setSelectedFarm(farmList[0].name);
+      }
+
       return res;
     } finally {
       setLoading(false);
@@ -153,6 +176,7 @@ export const AppProvider = ({ children }) => {
     try {
       await authService.logout();
       setFarmer(null);
+      setFarms([]);
       setIsAuthenticated(false);
     } finally {
       setLoading(false);
@@ -160,7 +184,27 @@ export const AppProvider = ({ children }) => {
   };
 
   const updateFarmerProfile = async (profileData) => {
-    const updated = await authService.updateProfile(profileData);
+    const res = await farmerService.updateProfile(profileData);
+    const profile = res.profile || res;
+    
+    // Map back to farmer object format expected by frontend
+    const updated = {
+      userId: profile.userId,
+      fullName: profile.fullName,
+      mobileNumber: profile.phone,
+      email: profile.email || "",
+      state: profile.state,
+      district: profile.district,
+      taluka: profile.taluka,
+      village: profile.village,
+      farmSize: profile.farmSize,
+      mainCrop: profile.mainCrop,
+      irrigationType: profile.irrigationType,
+      profileCompletion: profile.profileCompletion,
+      language: profileData.language || language
+    };
+
+    localStorage.setItem("krishiseva_farmer", JSON.stringify(updated));
     setFarmer(updated);
     if (profileData.language) {
       setLanguage(profileData.language);
@@ -193,6 +237,8 @@ export const AppProvider = ({ children }) => {
       value={{
         isAuthenticated,
         farmer,
+        farms,
+        setFarms,
         selectedFarm,
         setSelectedFarm,
         selectedCropId,
@@ -216,3 +262,4 @@ export const AppProvider = ({ children }) => {
     </AppContext.Provider>
   );
 };
+export default AppProvider;

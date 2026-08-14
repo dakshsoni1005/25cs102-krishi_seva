@@ -772,20 +772,22 @@ export const EmptyState = ({
 // 21. ERROR STATE
 // ==========================================
 export const ErrorState = ({
-  message = "An unexpected loading error occurred.",
+  title = "Service Temporarily Unavailable",
+  message = "Unable to load information from the server.",
   onRetry,
+  retryLabel = "Retry Connection",
   className = ""
 }) => {
   return (
-    <div className={`p-6 border border-red-200 rounded-xl bg-red-50 text-center flex flex-col items-center justify-center gap-4 max-w-md mx-auto my-6 ${className}`}>
-      <AlertTriangle className="w-10 h-10 text-red-500" />
-      <div className="flex flex-col">
-        <h4 className="font-bold text-red-900 text-lg">System Loading Error</h4>
-        <p className="text-sm text-red-700 font-medium mt-1">{message}</p>
+    <div className={`p-6 border border-red-200 rounded-xl bg-red-50 text-center flex flex-col items-center justify-center gap-3 max-w-md mx-auto my-6 ${className}`}>
+      <AlertTriangle className="w-8 h-8 text-red-500" />
+      <div className="flex flex-col gap-1">
+        <h4 className="font-bold text-red-900 text-base">{title}</h4>
+        <p className="text-xs text-red-700 font-medium leading-relaxed">{message}</p>
       </div>
       {onRetry && (
         <Button variant="danger" size="sm" onClick={onRetry}>
-          Retry Connection
+          {retryLabel}
         </Button>
       )}
     </div>
@@ -899,3 +901,6 @@ export const PageHeader = ({
     </div>
   );
 };
+
+
+

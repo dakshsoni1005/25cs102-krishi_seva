@@ -17,9 +17,8 @@ export const notificationService = {
   },
 
   addNotification: async (notifData) => {
-    // Adding local mock notification client-side (no-op or mock post)
-    // Return current notifications to keep flow consistent
-    return await notificationService.getNotifications();
+    const response = await api.post("/notifications", notifData);
+    return response.data.data;
   }
 };
 

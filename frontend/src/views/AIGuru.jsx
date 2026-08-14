@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useApp } from "../context/AppContext";
 import { Button, Card, PageHeader, Toast } from "../components/common";
-import { MessageSquare, Send, Trash2, Cpu, Sparkles, MessageCircle, HelpCircle } from "lucide-react";
+import { MessageSquare, Send, Trash2, Cpu, Sparkles, MessageCircle } from "lucide-react";
 import { aiGuruService } from "../services/aiGuruService";
 
 export const AIGuru = () => {
@@ -23,23 +23,25 @@ export const AIGuru = () => {
 
   const suggestedQuestions = [
     "What fertilizer should I use for cotton?",
-    "Will it rain tomorrow?",
+    "Will it rain tomorrow in my district?",
     "Why are my leaves turning yellow?",
     "Which crop should I grow this season?",
-    "Show today's market prices.",
+    "Show APMC market prices for groundnut.",
     "Which government schemes am I eligible for?"
   ];
 
   useEffect(() => {
-    // Load historical entries
     const loadHistory = async () => {
-      const hist = await aiGuruService.getChatHistory();
-      setHistory(hist);
+      try {
+        const hist = await aiGuruService.getChatHistory();
+        setHistory(Array.isArray(hist) ? hist : []);
+      } catch (err) {
+        console.error("Failed to load chat history:", err);
+      }
     };
     loadHistory();
   }, []);
 
-  // Auto-scroll chat to bottom
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
@@ -47,7 +49,6 @@ export const AIGuru = () => {
   const handleSendMessage = async (textToSend) => {
     if (!textToSend || textToSend.trim() === "") return;
 
-    // Add user message
     const userMsg = {
       sender: "user",
       text: textToSend,
@@ -62,7 +63,15 @@ export const AIGuru = () => {
       const aiReply = await aiGuruService.sendMessage(textToSend, messages);
       setMessages((prev) => [...prev, aiReply]);
     } catch (error) {
-      setToast({ type: "error", message: "AI response failed. Check connectivity." });
+      const errorText = error.response?.data?.message || "AI service is currently unavailable. Please verify your backend configuration or try again later.";
+      setMessages((prev) => [
+        ...prev,
+        {
+          sender: "ai",
+          text: `⚠️ ${errorText}`,
+          timestamp: new Date().toISOString()
+        }
+      ]);
     } finally {
       setIsTyping(false);
     }
@@ -95,7 +104,7 @@ export const AIGuru = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 flex-1 min-h-0 items-stretch">
         
-        {/* 1. CHAT HISTORY SIDEBAR (Hidden on Mobile, 1/4 width on Desktop) */}
+        {/* 1. CHAT HISTORY SIDEBAR */}
         <Card className="hidden lg:flex flex-col gap-4 bg-white border border-border-soft p-4 h-full">
           <div className="flex items-center justify-between border-b border-border-soft pb-3 shrink-0">
             <h4 className="font-extrabold text-sm text-text-dark flex items-center gap-1.5">
@@ -111,11 +120,10 @@ export const AIGuru = () => {
             </button>
           </div>
 
-          {/* History List */}
           <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 text-xs">
             {history.map((hist) => (
               <button
-                key={hist.id}
+                key={hist.id || hist._id}
                 onClick={() => handleSendMessage(hist.title)}
                 className="w-full text-left p-2.5 rounded-lg border border-border-soft/60 hover:bg-surface-soft text-text-muted hover:text-text-dark font-semibold transition-colors cursor-pointer truncate block"
               >
@@ -127,14 +135,13 @@ export const AIGuru = () => {
 
           <div className="border-t border-border-soft pt-3 text-[10px] font-semibold text-text-muted shrink-0 flex items-center gap-1">
             <Sparkles className="w-3.5 h-3.5 text-primary-800" />
-            Gemini LLM model configuration ready
+            Gemini LLM model endpoint
           </div>
         </Card>
 
-        {/* 2. MAIN CHAT AREA (3/4 width on Desktop) */}
+        {/* 2. MAIN CHAT AREA */}
         <Card className="lg:col-span-3 flex flex-col bg-white border border-border-soft p-4 h-full overflow-hidden">
           
-          {/* Chat Messages Log Panel */}
           <div className="flex-1 overflow-y-auto space-y-4 pr-1 mb-4 scrollbar-thin">
             {messages.map((msg, idx) => {
               const isAi = msg.sender === "ai";
@@ -143,7 +150,6 @@ export const AIGuru = () => {
                   key={idx}
                   className={`flex gap-3 max-w-[85%] ${isAi ? "mr-auto" : "ml-auto flex-row-reverse"}`}
                 >
-                  {/* Sender Avatar */}
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 border ${
                     isAi
                       ? "bg-primary-900 border-primary-850 text-accent-300"
@@ -152,7 +158,6 @@ export const AIGuru = () => {
                     {isAi ? <Cpu className="w-4 h-4" /> : <MessageCircle className="w-4 h-4" />}
                   </div>
 
-                  {/* Message Bubble */}
                   <div className={`rounded-2xl px-4 py-3 text-xs leading-relaxed font-medium whitespace-pre-line border ${
                     isAi
                       ? "bg-bg-warm/50 border-border-soft text-text-dark rounded-tl-xs"
@@ -167,7 +172,6 @@ export const AIGuru = () => {
               );
             })}
 
-            {/* AI Typing Indicator */}
             {isTyping && (
               <div className="flex gap-3 mr-auto max-w-[85%] animate-pulse">
                 <div className="w-8 h-8 rounded-full bg-primary-900 border border-primary-850 text-accent-300 flex items-center justify-center shrink-0">
@@ -184,7 +188,6 @@ export const AIGuru = () => {
             <div ref={chatEndRef} />
           </div>
 
-          {/* Suggestion Chips Selector */}
           <div className="border-t border-border-soft pt-3 mb-3 shrink-0">
             <span className="text-[9px] font-bold text-text-muted uppercase tracking-wider block mb-2 select-none">
               Suggested quick questions:
@@ -202,7 +205,6 @@ export const AIGuru = () => {
             </div>
           </div>
 
-          {/* Message Input Form Field */}
           <form onSubmit={handleFormSubmit} className="flex gap-2.5 border-t border-border-soft pt-3.5 shrink-0">
             <input
               type="text"

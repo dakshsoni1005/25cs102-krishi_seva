@@ -1,21 +1,15 @@
 const SoilProfile = require("../../database/models/SoilProfile");
 
 const getSoilData = async (farmerId) => {
-  const profile = await SoilProfile.findOne({ farmerId });
+  let profile = await SoilProfile.findOne({ farmerId });
+  
   if (!profile) {
-    // Return a default mock profile if no records seeded
-    return {
-      healthScore: 78,
-      type: "Medium Black Clayey Soil",
-      moisture: 38,
-      ph: 7.2,
-      nutrients: {
-        nitrogen: { value: 180, status: "Low", ideal: "280-560 kg/ha" },
-        phosphorus: { value: 18, status: "Medium", ideal: "23-57 kg/ha" },
-        potassium: { value: 310, status: "High", ideal: "140-280 kg/ha" },
-        organicCarbon: { value: 0.45, status: "Low", ideal: "0.5% - 0.75%" }
-      }
-    };
+    // Look up default regional profile from seeded database records
+    profile = await SoilProfile.findOne();
+  }
+
+  if (!profile) {
+    return null;
   }
 
   return formatSoilReport(profile);
@@ -25,13 +19,11 @@ const getSoilByRegion = async (farmerId, regionName) => {
   let profile = await SoilProfile.findOne({ farmerId, region: regionName });
   
   if (!profile) {
-    // If not customized for farmer yet, load general seeded region parameters or create one
     profile = await SoilProfile.findOne({ region: regionName });
-    if (!profile) {
-      const err = new Error(`Soil profile for region '${regionName}' not found.`);
-      err.statusCode = 404;
-      throw err;
-    }
+  }
+
+  if (!profile) {
+    return null;
   }
 
   return formatSoilReport(profile);
@@ -45,23 +37,17 @@ const triggerRetest = async (farmerId, regionName) => {
     throw err;
   }
 
-  // Slightly randomize potassium and moisture values to simulate live re-test
-  profile.potassium = Math.max(140, profile.potassium + Math.round((Math.random() - 0.5) * 30));
-  profile.moisture = Math.max(10, Math.min(95, profile.moisture + Math.round((Math.random() - 0.5) * 10)));
-  profile.healthScore = Math.max(50, Math.min(100, profile.healthScore + Math.round((Math.random() - 0.5) * 4)));
-  
+  profile.updatedAt = new Date();
   await profile.save();
   return formatSoilReport(profile);
 };
 
-// Helper to format soil DB document into frontend service schema
 const formatSoilReport = (profile) => {
   const nStatus = profile.nitrogen < 280 ? "Low" : profile.nitrogen > 560 ? "High" : "Medium";
   const pStatus = profile.phosphorus < 23 ? "Low" : profile.phosphorus > 57 ? "High" : "Medium";
   const kStatus = profile.potassium < 140 ? "Low" : profile.potassium > 280 ? "High" : "Medium";
   const ocStatus = profile.organicCarbon < 0.5 ? "Low" : profile.organicCarbon > 0.75 ? "High" : "Medium";
 
-  // Regional crop mappings
   const regionalCrops = {
     "Central Gujarat": [
       { name: "Cotton", suitability: 95, reason: "Soil pH and black clay structure is excellent for cotton taproot development." },

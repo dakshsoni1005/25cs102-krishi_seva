@@ -2,15 +2,14 @@ import React, { useState, useEffect } from "react";
 import { useApp } from "../context/AppContext";
 import {
   Card,
-  Badge,
   PageHeader,
   SearchInput,
   Select,
   DataTable,
-  Button,
-  Toast
+  Toast,
+  ErrorState
 } from "../components/common";
-import { Star, TrendingUp, Search, Info, Award } from "lucide-react";
+import { Star, TrendingUp, Info } from "lucide-react";
 import { marketService } from "../services/marketService";
 
 export const MarketPrices = () => {
@@ -21,6 +20,7 @@ export const MarketPrices = () => {
   const [watchlist, setWatchlist] = useState([]);
   const [selectedCrop, setSelectedCrop] = useState("Cotton");
   const [trendData, setTrendData] = useState([]);
+  const [error, setError] = useState(false);
   const [toast, setToast] = useState(null);
 
   // Filters
@@ -41,14 +41,17 @@ export const MarketPrices = () => {
     { value: "Sesame", label: "Sesame (તલ)" }
   ];
 
+  const gujaratDistricts = [
+    "Ahmedabad", "Amreli", "Anand", "Aravalli", "Banaskantha", "Bharuch", "Bhavnagar",
+    "Botad", "Chhota Udepur", "Dahod", "Dang", "Devbhoomi Dwarka", "Gandhinagar",
+    "Gir Somnath", "Jamnagar", "Junagadh", "Kachchh", "Kheda", "Mahisagar", "Mehsana",
+    "Morbi", "Narmada", "Navsari", "Panchmahal", "Patan", "Porbandar", "Rajkot",
+    "Sabarkantha", "Surat", "Surendranagar", "Tapi", "Vadodara", "Valsad"
+  ];
+
   const districtOptions = [
     { value: "", label: "All Districts" },
-    { value: "Rajkot", label: "Rajkot" },
-    { value: "Anand", label: "Anand" },
-    { value: "Ahmedabad", label: "Ahmedabad" },
-    { value: "Patan", label: "Patan" },
-    { value: "Mehsana", label: "Mehsana" },
-    { value: "Banaskantha", label: "Banaskantha" }
+    ...gujaratDistricts.map((d) => ({ value: d, label: d }))
   ];
 
   const sortOptions = [
@@ -57,70 +60,77 @@ export const MarketPrices = () => {
     { value: "price_asc", label: "Lowest Avg Price" }
   ];
 
-  // Fetch prices on filter changes
-  useEffect(() => {
-    const loadPrices = async () => {
-      try {
-        setLoading(true);
-        const filters = {
-          search: searchTerm,
-          crop: cropFilter,
-          district: districtFilter,
-          sortBy
-        };
-        const data = await marketService.getMarketPrices(filters);
-        setMarkets(data);
+  const loadPrices = async () => {
+    try {
+      setLoading(true);
+      setError(false);
+      const filters = {
+        search: searchTerm,
+        crop: cropFilter,
+        district: districtFilter,
+        sortBy
+      };
+      const data = await marketService.getMarketPrices(filters);
+      setMarkets(data);
 
-        // Fetch watchlist keys
-        const watch = await marketService.getWatchlist();
-        setWatchlist(watch);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
+      const watch = await marketService.getWatchlist();
+      setWatchlist(watch);
+    } catch (err) {
+      console.error(err);
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     loadPrices();
   }, [searchTerm, cropFilter, districtFilter, sortBy]);
 
-  // Fetch trend data when selected crop changes
   useEffect(() => {
     const loadTrends = async () => {
-      const trends = await marketService.getPriceTrends(selectedCrop);
-      setTrendData(trends);
+      try {
+        const trends = await marketService.getPriceTrends(selectedCrop);
+        setTrendData(trends);
+      } catch (err) {
+        setTrendData([]);
+      }
     };
     loadTrends();
   }, [selectedCrop]);
 
   const handleToggleWatchlist = async (id, cropName, marketName) => {
-    const updated = await marketService.toggleWatchlist(id);
-    setWatchlist(updated);
-    
-    const isAdded = updated.includes(id);
-    setToast({
-      type: "success",
-      message: isAdded
-        ? `Added ${cropName} (${marketName}) to watchlist.`
-        : `Removed ${cropName} (${marketName}) from watchlist.`
-    });
-    
-    addLocalNotification(
-      "Watchlist Updated",
-      `${cropName} in ${marketName} ${isAdded ? "added to" : "removed from"} price watchlist.`,
-      "Market",
-      "info"
-    );
+    try {
+      const updated = await marketService.toggleWatchlist(id);
+      setWatchlist(updated);
+      
+      const isAdded = updated.includes(id);
+      setToast({
+        type: "success",
+        message: isAdded
+          ? `Added ${cropName} (${marketName}) to watchlist.`
+          : `Removed ${cropName} (${marketName}) from watchlist.`
+      });
+      
+      addLocalNotification(
+        "Watchlist Updated",
+        `${cropName} in ${marketName} ${isAdded ? "added to" : "removed from"} price watchlist.`,
+        "Market",
+        "info"
+      );
+    } catch (err) {
+      setToast({ type: "error", message: "Failed to update watchlist." });
+    }
   };
 
-  // SVG Chart Computations
   const chartHeight = 120;
   const chartWidth = 320;
   const maxPriceVal = trendData.length > 0 ? Math.max(...trendData.map((d) => d.price)) : 8000;
   const minPriceVal = trendData.length > 0 ? Math.min(...trendData.map((d) => d.price)) : 1000;
-  const priceRange = maxPriceVal - minPriceVal;
+  const priceRange = maxPriceVal - minPriceVal || 1;
   const points = trendData
     .map((d, i) => {
-      const x = (i / (trendData.length - 1)) * (chartWidth - 40) + 20;
+      const x = (i / (trendData.length - 1 || 1)) * (chartWidth - 40) + 20;
       const y = chartHeight - ((d.price - minPriceVal) / priceRange) * (chartHeight - 30) - 15;
       return `${x},${y}`;
     })
@@ -159,7 +169,7 @@ export const MarketPrices = () => {
       accessor: "avgPrice",
       render: (row) => (
         <span className="font-extrabold text-primary-800">
-          ₹{row.avgPrice} / qtl
+          ₹{row.avgPrice} / {row.unit || "quintal"}
         </span>
       )
     },
@@ -170,8 +180,8 @@ export const MarketPrices = () => {
         const colors = { up: "text-emerald-600 bg-emerald-50", down: "text-red-600 bg-red-50", flat: "text-text-muted bg-surface-soft" };
         const label = { up: "📈 Up", down: "📉 Down", flat: "✦ Stable" };
         return (
-          <span className={`px-2 py-0.5 rounded font-bold uppercase tracking-wider text-[10px] ${colors[row.trend]}`}>
-            {label[row.trend]}
+          <span className={`px-2 py-0.5 rounded font-bold uppercase tracking-wider text-[10px] ${colors[row.trend] || colors.flat}`}>
+            {label[row.trend] || label.flat}
           </span>
         );
       }
@@ -224,6 +234,12 @@ export const MarketPrices = () => {
         <div className="lg:col-span-2 space-y-6">
           {loading ? (
             <Card className="p-10"><div className="h-48 bg-surface-soft animate-shimmer rounded-lg" /></Card>
+          ) : error ? (
+            <ErrorState
+              title="Live Market Data Unavailable"
+              message="Unable to load APMC market price feeds from the database endpoint."
+              onRetry={loadPrices}
+            />
           ) : (
             <DataTable
               columns={tableColumns}
@@ -233,15 +249,14 @@ export const MarketPrices = () => {
           )}
         </div>
 
-        {/* RIGHT COLUMN: PRICE TREND GRAPH & WATCHLIST CARD (1/3 width) */}
+        {/* RIGHT COLUMN: PRICE TREND GRAPH */}
         <div className="space-y-6">
           
-          {/* A. price trend SVG chart */}
           <Card className="flex flex-col gap-4">
             <div className="flex items-center justify-between border-b border-border-soft pb-3">
               <h4 className="font-extrabold text-base text-text-dark flex items-center gap-2">
                 <TrendingUp className="w-4.5 h-4.5 text-primary-800 shrink-0" />
-                6-Month Price Trend
+                Historical Price Trend
               </h4>
               
               <Select
@@ -253,7 +268,6 @@ export const MarketPrices = () => {
               />
             </div>
 
-            {/* Custom SVG Line Chart */}
             {trendData.length > 0 ? (
               <div className="flex flex-col items-center gap-4">
                 <div className="w-full h-[150px] bg-surface-soft/40 border border-border-soft/60 rounded-xl p-3 flex flex-col justify-between">
@@ -263,12 +277,10 @@ export const MarketPrices = () => {
                   </div>
                   
                   <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="w-full h-28 overflow-visible">
-                    {/* Horizontal grid lines */}
                     <line x1="20" y1="20" x2={chartWidth-20} y2="20" stroke="#e4e2d7" strokeWidth="1" strokeDasharray="3" />
                     <line x1="20" y1="60" x2={chartWidth-20} y2="60" stroke="#e4e2d7" strokeWidth="1" strokeDasharray="3" />
                     <line x1="20" y1="100" x2={chartWidth-20} y2="100" stroke="#e4e2d7" strokeWidth="1" strokeDasharray="3" />
                     
-                    {/* SVG Line Graph path */}
                     <polyline
                       fill="none"
                       stroke="#1b4332"
@@ -276,9 +288,8 @@ export const MarketPrices = () => {
                       points={points}
                     />
                     
-                    {/* Data Points */}
                     {trendData.map((d, i) => {
-                      const x = (i / (trendData.length - 1)) * (chartWidth - 40) + 20;
+                      const x = (i / (trendData.length - 1 || 1)) * (chartWidth - 40) + 20;
                       const y = chartHeight - ((d.price - minPriceVal) / priceRange) * (chartHeight - 30) - 15;
                       return (
                         <circle
@@ -296,14 +307,10 @@ export const MarketPrices = () => {
                     {trendData.map((d, i) => <span key={i}>{d.month}</span>)}
                   </div>
                 </div>
-                
-                <p className="text-[11px] text-text-muted text-center font-medium leading-relaxed">
-                  Price trend charts are calculated dynamically based on regional volume reports. Selling when the curve curves upward maximizes yields.
-                </p>
               </div>
             ) : (
-              <div className="h-32 flex items-center justify-center text-xs text-text-muted">
-                No trend data available for this crop.
+              <div className="h-32 flex items-center justify-center text-xs text-text-muted font-medium text-center p-4">
+                No historical market price trend data available.
               </div>
             )}
           </Card>
@@ -311,7 +318,7 @@ export const MarketPrices = () => {
           <div className="flex items-start gap-2.5 bg-primary-50 text-primary-800 border border-primary-100 rounded-xl p-4 text-xs leading-relaxed font-semibold">
             <Info className="w-5 h-5 shrink-0 mt-0.5" />
             <div>
-              <b>APMC volume sync note:</b> In future integrations, pricing indices will pull from the national APMC/Agmarknet REST APIs.
+              <b>APMC Market Feed:</b> Displays price reports logged in the APMC database.
             </div>
           </div>
 

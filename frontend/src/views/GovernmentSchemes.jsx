@@ -9,7 +9,9 @@ import {
   SearchInput,
   PageHeader,
   Toast,
-  LoadingSkeleton
+  LoadingSkeleton,
+  ErrorState,
+  EmptyState
 } from "../components/common";
 import { Landmark, Info, FileCheck2, XCircle } from "lucide-react";
 import { schemeService } from "../services/schemeService";
@@ -19,6 +21,7 @@ export const GovernmentSchemes = () => {
 
   const [loading, setLoading] = useState(true);
   const [schemes, setSchemes] = useState([]);
+  const [error, setError] = useState(false);
   
   // Filters state
   const [searchTerm, setSearchTerm] = useState("");
@@ -49,24 +52,27 @@ export const GovernmentSchemes = () => {
     { value: "Castor", label: "Castor" }
   ];
 
+  const loadSchemes = async () => {
+    try {
+      setLoading(true);
+      setError(false);
+      const filters = {
+        search: searchTerm,
+        benefitType: benefitFilter,
+        crop: cropFilter,
+        state: farmer?.state || "Gujarat"
+      };
+      const data = await schemeService.getSchemes(filters);
+      setSchemes(data);
+    } catch (err) {
+      console.error(err);
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const loadSchemes = async () => {
-      try {
-        setLoading(true);
-        const filters = {
-          search: searchTerm,
-          benefitType: benefitFilter,
-          crop: cropFilter,
-          state: farmer?.state // Pass registered state as base constraint
-        };
-        const data = await schemeService.getSchemes(filters);
-        setSchemes(data);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
     loadSchemes();
   }, [searchTerm, benefitFilter, cropFilter, farmer]);
 
@@ -90,7 +96,6 @@ export const GovernmentSchemes = () => {
     setIsCheckOpen(false);
     setToast({ type: "success", message: `Application submitted for: ${schemeName}` });
     
-    // Update local schemes list application status if matched
     setSchemes((prev) =>
       prev.map((s) =>
         s.name === schemeName ? { ...s, applicationStatus: "Applied" } : s
@@ -99,7 +104,7 @@ export const GovernmentSchemes = () => {
 
     addLocalNotification(
       "Scheme Applied",
-      `Successfully submitted mock application details for ${schemeName}.`,
+      `Application filed for ${schemeName}.`,
       "Government",
       "medium"
     );
@@ -150,14 +155,24 @@ export const GovernmentSchemes = () => {
           <LoadingSkeleton />
           <LoadingSkeleton />
         </div>
+      ) : error ? (
+        <ErrorState
+          title="Government Schemes Unavailable"
+          message="Unable to load government scheme records from the database."
+          onRetry={loadSchemes}
+        />
       ) : schemes.length === 0 ? (
-        <div className="text-center py-10 bg-white border border-border-soft rounded-xl text-xs text-text-muted font-semibold">
-          No government schemes match your registered state ({farmer?.state}) and crop filter rules.
-        </div>
+        <EmptyState
+          title="No Government Schemes Found"
+          description="No active schemes match your selected search or filter rules."
+          actionLabel="Clear Filters"
+          onAction={() => { setSearchTerm(""); setBenefitFilter(""); setCropFilter(""); }}
+          icon={Landmark}
+        />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
           {schemes.map((sch) => (
-            <Card key={sch.id} className="flex flex-col gap-4 bg-white border border-border-soft p-5 justify-between">
+            <Card key={sch.id || sch._id} className="flex flex-col gap-4 bg-white border border-border-soft p-5 justify-between">
               <div className="space-y-3">
                 <div className="flex justify-between items-start gap-4">
                   <div className="flex flex-col">
@@ -165,7 +180,7 @@ export const GovernmentSchemes = () => {
                     <h4 className="font-extrabold text-base text-text-dark mt-0.5 leading-snug">{sch.name}</h4>
                   </div>
                   <Badge variant={statusColors[sch.applicationStatus] || "primary"}>
-                    {sch.applicationStatus}
+                    {sch.applicationStatus || "Eligible"}
                   </Badge>
                 </div>
                 
@@ -181,22 +196,14 @@ export const GovernmentSchemes = () => {
 
               <div className="flex items-center justify-between border-t border-border-soft pt-4 mt-1 text-xs">
                 <span className="text-text-muted font-semibold">Deadline: <span className="text-text-dark font-bold">{sch.deadline}</span></span>
-                {sch.applicationStatus === "Eligible" ? (
-                  <Button size="sm" onClick={() => handleCheckEligibility(sch)}>
-                    Check Eligibility
-                  </Button>
-                ) : sch.applicationStatus === "Approved" ? (
+                {sch.applicationStatus === "Approved" ? (
                   <span className="text-emerald-700 font-extrabold flex items-center gap-1">
                     ✓ Benefit Active
                   </span>
-                ) : sch.applicationStatus === "Pending" ? (
-                  <span className="text-amber-600 font-bold">
-                    ⏱ Under Verification
-                  </span>
                 ) : (
-                  <span className="text-text-muted font-semibold bg-surface-soft px-2.5 py-1 rounded border border-border-soft/60">
-                    Application Filed
-                  </span>
+                  <Button size="sm" onClick={() => handleCheckEligibility(sch)}>
+                    Check Eligibility
+                  </Button>
                 )}
               </div>
             </Card>
@@ -229,7 +236,6 @@ export const GovernmentSchemes = () => {
           </div>
         ) : eligibilityResult && (
           <div className="space-y-4 text-xs font-semibold">
-            {/* Status indicator */}
             <div className={`p-4 rounded-xl flex gap-3 border ${
               eligibilityResult.eligible
                 ? "bg-emerald-50 text-emerald-900 border-emerald-200"
@@ -247,29 +253,6 @@ export const GovernmentSchemes = () => {
                 <p className="opacity-90 leading-relaxed font-medium mt-1">{eligibilityResult.reason}</p>
               </div>
             </div>
-
-            {/* Scheme limits summary */}
-            {selectedScheme && (
-              <div className="bg-surface-soft/40 border border-border-soft p-3 rounded-lg space-y-1.5 leading-relaxed">
-                <div className="text-[10px] font-bold text-text-muted uppercase border-b border-border-soft pb-1">Scheme constraints vs your profile:</div>
-                <div>State: Limit: <b>{selectedScheme.eligibility.state}</b> vs Your State: <b>{farmer?.state}</b></div>
-                <div>Farm Size: Limit: <b>{selectedScheme.eligibility.maxLandSize}</b> vs Your Size: <b>{farmer?.farmSize} Acres</b></div>
-                <div>Crop: Limit: <b>{selectedScheme.eligibility.crops}</b> vs Your Crop: <b>{farmer?.mainCrop}</b></div>
-              </div>
-            )}
-
-            {/* Next steps guideline */}
-            {eligibilityResult.eligible && (
-              <div className="space-y-2 border-t border-border-soft pt-3">
-                <h4 className="font-extrabold uppercase text-[10px] text-primary-900 flex items-center gap-1">
-                  <Info className="w-4 h-4 text-primary-800" />
-                  Documentation checklist required:
-                </h4>
-                <p className="text-text-muted leading-relaxed font-medium">
-                  {eligibilityResult.nextSteps}
-                </p>
-              </div>
-            )}
           </div>
         )}
       </Modal>

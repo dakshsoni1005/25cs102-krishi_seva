@@ -36,7 +36,6 @@ const getMarketPrices = async (filters = {}) => {
 
   const results = await prices.lean();
   
-  // Format results for frontend service compatibility with normalized fields
   return results.map((r) => ({
     id: r._id.toString(),
     crop: r.cropName,
@@ -54,47 +53,34 @@ const getMarketPrices = async (filters = {}) => {
     lastUpdated: r.date ? new Date(r.date).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
     trend: r.trend || "stable",
     source: r.source || "APMC Market Feed",
-    isLive: false // Indicates seeded APMC rate feed vs active external API key
+    isLive: Boolean(r.isLive)
   }));
 };
 
 const getPriceTrends = async (cropName) => {
-  const mockPriceTrends = {
-    "Cotton": [
-      { month: "Mar", price: 6800 },
-      { month: "Apr", price: 6950 },
-      { month: "May", price: 7100 },
-      { month: "Jun", price: 7050 },
-      { month: "Jul", price: 7150 },
-      { month: "Aug", price: 7200 }
-    ],
-    "Groundnut": [
-      { month: "Mar", price: 6900 },
-      { month: "Apr", price: 6850 },
-      { month: "May", price: 6800 },
-      { month: "Jun", price: 6720 },
-      { month: "Jul", price: 6700 },
-      { month: "Aug", price: 6650 }
-    ],
-    "Wheat": [
-      { month: "Mar", price: 2300 },
-      { month: "Apr", price: 2420 },
-      { month: "May", price: 2500 },
-      { month: "Jun", price: 2550 },
-      { month: "Jul", price: 2600 },
-      { month: "Aug", price: 2625 }
-    ],
-    "Castor": [
-      { month: "Mar", price: 6400 },
-      { month: "Apr", price: 6300 },
-      { month: "May", price: 6250 },
-      { month: "Jun", price: 6200 },
-      { month: "Jul", price: 6150 },
-      { month: "Aug", price: 6100 }
-    ]
-  };
+  if (!cropName) return [];
 
-  return mockPriceTrends[cropName] || mockPriceTrends["Cotton"];
+  // Query database for historical market records for target crop
+  const records = await MarketPrice.find({
+    cropName: { $regex: `^${cropName}$`, $options: "i" }
+  })
+    .sort({ date: 1 })
+    .limit(6)
+    .lean();
+
+  if (!records || records.length === 0) {
+    return [];
+  }
+
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+  return records.map((r) => {
+    const d = r.date ? new Date(r.date) : new Date();
+    return {
+      month: months[d.getMonth()],
+      price: r.modalPrice
+    };
+  });
 };
 
 const getWatchlistKeys = async (farmerId) => {

@@ -41,7 +41,6 @@ const fetchWeatherData = async (latitude = 22.5694, longitude = 72.9904) => {
     const currentRainProb = hourlyData.precipitation_probability ? hourlyData.precipitation_probability[0] : 15;
     const currentHumidity = hourlyData.relative_humidity_2m ? hourlyData.relative_humidity_2m[0] : 62;
 
-    // Build 5-day daily forecast array
     const forecastDays = (dailyData.time || []).slice(0, 5).map((time, idx) => {
       const dateObj = new Date(time);
       const dayName = dateObj.toLocaleDateString("en-US", { weekday: "short" });
@@ -55,7 +54,6 @@ const fetchWeatherData = async (latitude = 22.5694, longitude = 72.9904) => {
       };
     });
 
-    // Generate alerts if severe conditions exist
     const alerts = [];
     if (currentRainProb > 70) {
       alerts.push({
@@ -91,28 +89,11 @@ const fetchWeatherData = async (latitude = 22.5694, longitude = 72.9904) => {
   } catch (error) {
     const latency = Date.now() - startTime;
     logger.error(`Open-Meteo Weather API Call Failed (${latency}ms): ${error.message}`);
-
-    // Fallback static weather object if external API fails
-    return {
-      current: {
-        temp: 31,
-        condition: "Partly Cloudy",
-        humidity: 65,
-        windSpeed: "12 km/h",
-        rainProbability: 15
-      },
-      forecast: [
-        { day: "Today", maxTemp: 33, minTemp: 24, rainProbability: 15 },
-        { day: "Tomorrow", maxTemp: 32, minTemp: 23, rainProbability: 80 },
-        { day: "Wed", maxTemp: 30, minTemp: 22, rainProbability: 40 },
-        { day: "Thu", maxTemp: 34, minTemp: 25, rainProbability: 10 },
-        { day: "Fri", maxTemp: 35, minTemp: 25, rainProbability: 5 }
-      ],
-      alerts: [],
-      source: "Cached Fallback",
-      isLive: false,
-      lastUpdated: new Date()
-    };
+    
+    const err = new Error("Weather service is temporarily unavailable.");
+    err.statusCode = 503;
+    err.code = "WEATHER_SERVICE_UNAVAILABLE";
+    throw err;
   }
 };
 

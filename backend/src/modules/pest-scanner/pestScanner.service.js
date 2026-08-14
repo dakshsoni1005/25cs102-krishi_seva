@@ -10,26 +10,26 @@ const analyzeLeaf = async (farmerId, file) => {
     throw err;
   }
 
-  // 1. Upload image (to Cloudinary or local path fallback)
+  // 1. Upload image (to Cloudinary or local static path)
   const uploadResult = await cloudinaryClient.uploadImage(file);
 
-  // 2. Query farmer crop block context to improve mock precision
+  // 2. Query farmer crop block context
   const profile = await FarmerProfile.findOne({ userId: farmerId });
-  const primaryCrop = profile ? profile.mainCrop : "Cotton";
+  const primaryCrop = profile ? profile.mainCrop : "Crop";
 
   // 3. Analyze leaf using ML prediction adapter
   const analysis = await pestAiClient.analyzeLeafImage(file.path, file.originalname);
 
-  // Convert confidence to a 0-1 range decimal
+  // Convert confidence to decimal range (0-1)
   const confidenceDecimal = analysis.confidence > 1 ? analysis.confidence / 100 : analysis.confidence;
 
-  // 4. Save to database history using new schema fields
+  // 4. Save scan record to database history
   const scanRecord = await PestScan.create({
     farmerId,
     imageUrl: uploadResult.url,
     imagePublicId: uploadResult.publicId || "",
     detectedDisease: analysis.diseaseDetected,
-    detectedPest: analysis.detectedPest || "Aphids",
+    detectedPest: analysis.detectedPest || analysis.diseaseDetected,
     confidence: confidenceDecimal,
     severity: analysis.severity,
     symptoms: analysis.symptoms,
@@ -39,12 +39,11 @@ const analyzeLeaf = async (farmerId, file) => {
     status: "completed"
   });
 
-  // Map database document properties back to properties expected by the frontend
   return {
     id: scanRecord._id.toString(),
     imageUrl: scanRecord.imageUrl,
     diseaseDetected: scanRecord.detectedDisease,
-    confidence: Math.round(scanRecord.confidence * 100), // convert back to percentage for frontend UI
+    confidence: Math.round(scanRecord.confidence * 100),
     severity: scanRecord.severity,
     cropName: primaryCrop,
     symptoms: scanRecord.symptoms,
@@ -64,7 +63,7 @@ const getScanHistory = async (farmerId) => {
     diseaseDetected: h.detectedDisease,
     confidence: Math.round(h.confidence * 100),
     severity: h.severity,
-    cropName: h.detectedDisease.includes("Cotton") ? "Cotton" : "Tomato",
+    cropName: h.detectedDisease.includes("Cotton") ? "Cotton" : "Crop Block",
     symptoms: h.symptoms,
     possibleCause: h.possibleCauses,
     treatment: h.treatment,

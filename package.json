@@ -1,0 +1,10 @@
+{
+  "name": "krishiseva-root",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "audit:dummy": "node scripts/auditDummy.js",
+    "test": "cd backend && npm test",
+    "build": "cd frontend && npm run build"
+  }
+}

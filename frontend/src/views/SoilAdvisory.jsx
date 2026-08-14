@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useApp } from "../context/AppContext";
-import { Card, Badge, PageHeader, Select, Button, Toast } from "../components/common";
-import { Sprout, BarChart3, AlertTriangle, ShieldCheck, MapPin, FlaskConical, Beaker } from "lucide-react";
+import { Card, Badge, PageHeader, Select, Button, Toast, EmptyState } from "../components/common";
+import { Sprout, BarChart3, MapPin, FlaskConical, Beaker } from "lucide-react";
 import { soilService } from "../services/soilService";
 
 export const SoilAdvisory = () => {
-  const { farmer, t, addLocalNotification } = useApp();
+  const { t } = useApp();
 
   const [loading, setLoading] = useState(true);
   const [selectedRegion, setSelectedRegion] = useState("Central Gujarat");
@@ -20,38 +20,21 @@ export const SoilAdvisory = () => {
     { value: "Kachchh", label: "Kachchh (કચ્છ)" }
   ];
 
+  const fetchSoil = async () => {
+    try {
+      setLoading(true);
+      const res = await soilService.getSoilByRegion(selectedRegion);
+      setSoilData(res);
+    } catch (error) {
+      setToast({ type: "error", message: "Failed to fetch soil data for selected region." });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchSoil = async () => {
-      try {
-        setLoading(true);
-        const res = await soilService.getSoilByRegion(selectedRegion);
-        setSoilData(res);
-      } catch (error) {
-        setToast({ type: "error", message: "Failed to fetch soil data for region." });
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchSoil();
   }, [selectedRegion]);
-
-  const triggerMockReTest = () => {
-    setToast({ type: "success", message: "Initiated soil re-test. Results will refresh in 2 seconds." });
-    setLoading(true);
-    setTimeout(async () => {
-      const res = await soilService.getSoilByRegion(selectedRegion);
-      // Alter potassium slightly for demo validation
-      res.nutrients.potassium.value += Math.round((Math.random() - 0.5) * 20);
-      setSoilData(res);
-      setLoading(false);
-      addLocalNotification(
-        "Soil Re-test Completed",
-        `Refreshed NPK parameters for ${selectedRegion}. Soil health is ${res.healthScore}/100.`,
-        "Soil",
-        "medium"
-      );
-    }, 2000);
-  };
 
   return (
     <div className="space-y-6 select-none">
@@ -69,7 +52,7 @@ export const SoilAdvisory = () => {
           </div>
           <div className="flex flex-col">
             <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider">Region Selection</span>
-            <span className="text-sm font-bold text-text-dark">Currently showing soil tests for: <b>{selectedRegion}</b></span>
+            <span className="text-sm font-bold text-text-dark">Currently showing soil test profiles for: <b>{selectedRegion}</b></span>
           </div>
         </div>
 
@@ -81,8 +64,8 @@ export const SoilAdvisory = () => {
             onChange={(e) => setSelectedRegion(e.target.value)}
             className="w-full sm:w-60"
           />
-          <Button variant="outline" size="sm" onClick={triggerMockReTest} icon={FlaskConical}>
-            Re-test Soil Sample
+          <Button variant="outline" size="sm" onClick={fetchSoil} icon={FlaskConical}>
+            Refresh Soil Report
           </Button>
         </div>
       </Card>
@@ -92,13 +75,21 @@ export const SoilAdvisory = () => {
           <div className="md:col-span-2"><Card><div className="h-64 bg-surface-soft animate-shimmer rounded-xl" /></Card></div>
           <div><Card><div className="h-64 bg-surface-soft animate-shimmer rounded-xl" /></Card></div>
         </div>
-      ) : soilData && (
+      ) : !soilData ? (
+        <EmptyState
+          title="No Soil Profile Available"
+          description="No official soil test parameters have been logged for this region yet."
+          actionLabel="Refresh Region Data"
+          onAction={fetchSoil}
+          icon={FlaskConical}
+        />
+      ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start animate-in fade-in duration-200">
           
-          {/* LEFT & CENTER COLUMN (2/3 width on Desktop) */}
+          {/* LEFT & CENTER COLUMN */}
           <div className="lg:col-span-2 space-y-6">
             
-            {/* A. SOIL HEALTH CARD */}
+            {/* SOIL HEALTH CARD */}
             <Card className="bg-gradient-to-br from-primary-900 via-primary-800 to-primary-900 border-0 text-white relative overflow-hidden p-6 shadow-md">
               <div className="absolute right-0 bottom-0 w-32 h-32 bg-accent-300/5 rounded-full pointer-events-none" />
               
@@ -120,7 +111,7 @@ export const SoilAdvisory = () => {
                 
                 <div className="flex flex-col">
                   <span className="text-[10px] text-primary-200 uppercase font-bold tracking-wider">Acidic/Alkaline pH</span>
-                  <span className="text-sm font-extrabold mt-1 text-white">{soilData.ph} (Neutral)</span>
+                  <span className="text-sm font-extrabold mt-1 text-white">{soilData.ph}</span>
                 </div>
 
                 <div className="flex flex-col">
@@ -129,15 +120,15 @@ export const SoilAdvisory = () => {
                 </div>
 
                 <div className="flex flex-col">
-                  <span className="text-[10px] text-primary-200 uppercase font-bold tracking-wider">Farming District</span>
-                  <span className="text-sm font-extrabold mt-1 text-white">
-                    {soilData.regionalContext?.districts[0]} APMC
+                  <span className="text-[10px] text-primary-200 uppercase font-bold tracking-wider">Region Zone</span>
+                  <span className="text-sm font-extrabold mt-1 text-white truncate">
+                    {selectedRegion}
                   </span>
                 </div>
               </div>
             </Card>
 
-            {/* B. CHEMICAL NPK NUTRIENTS CHART PANEL */}
+            {/* CHEMICAL NPK NUTRIENTS PANEL */}
             <Card className="flex flex-col gap-5">
               <div className="flex items-center gap-2 border-b border-border-soft pb-3.5">
                 <BarChart3 className="w-5 h-5 text-primary-800 shrink-0" />
@@ -145,7 +136,7 @@ export const SoilAdvisory = () => {
               </div>
 
               <div className="space-y-4 text-xs font-semibold">
-                {Object.entries(soilData.nutrients).map(([key, nut]) => {
+                {Object.entries(soilData.nutrients || {}).map(([key, nut]) => {
                   const labelMap = { nitrogen: "Nitrogen (N) - Leaf development", phosphorus: "Phosphorus (P) - Root growth", potassium: "Potassium (K) - Disease resistance", organicCarbon: "Organic Carbon (OC) - Soil biology" };
                   const unitMap = { nitrogen: "kg/ha", phosphorus: "kg/ha", potassium: "kg/ha", organicCarbon: "%" };
                   
@@ -180,14 +171,14 @@ export const SoilAdvisory = () => {
               </div>
             </Card>
 
-            {/* C. CROP SUITABILITY MATRIX */}
+            {/* CROP SUITABILITY MATRIX */}
             <Card className="flex flex-col gap-4">
               <h3 className="font-extrabold text-base text-text-dark border-b border-border-soft pb-3.5">
                 Dynamic Crop Compatibility Matrix
               </h3>
               
               <div className="divide-y divide-border-soft/60">
-                {soilData.recommendedCrops.map((crop, idx) => (
+                {(soilData.recommendedCrops || []).map((crop, idx) => (
                   <div key={idx} className="py-3.5 flex flex-col md:flex-row justify-between gap-2.5 text-xs">
                     <div className="flex flex-col gap-0.5">
                       <span className="font-bold text-text-dark text-sm">{crop.name}</span>
@@ -206,10 +197,10 @@ export const SoilAdvisory = () => {
 
           </div>
 
-          {/* RIGHT COLUMN (1/3 width on Desktop) */}
+          {/* RIGHT COLUMN */}
           <div className="space-y-6">
             
-            {/* A. RECOMMENDED FERTILIZERS */}
+            {/* RECOMMENDED FERTILIZERS */}
             <Card className="flex flex-col gap-4">
               <h4 className="font-extrabold text-base text-text-dark border-b border-border-soft pb-3 flex items-center gap-2">
                 <FlaskConical className="w-4.5 h-4.5 text-primary-800 shrink-0" />
@@ -217,7 +208,7 @@ export const SoilAdvisory = () => {
               </h4>
               
               <div className="space-y-4">
-                {soilData.recommendedFertilizers.map((fert, idx) => (
+                {(soilData.recommendedFertilizers || []).map((fert, idx) => (
                   <div key={idx} className="bg-surface-soft/40 border border-border-soft/60 rounded-xl p-3.5 flex flex-col gap-1 text-xs">
                     <span className="font-extrabold text-primary-900">{fert.name}</span>
                     <span className="font-bold text-text-dark mt-1">Dosage: <span className="text-text-muted font-semibold">{fert.dosage}</span></span>
@@ -227,7 +218,7 @@ export const SoilAdvisory = () => {
               </div>
             </Card>
 
-            {/* B. SOIL IMPROVEMENT SUGGESTIONS */}
+            {/* SOIL IMPROVEMENT GUIDELINES */}
             <Card className="flex flex-col gap-4">
               <h4 className="font-extrabold text-base text-text-dark border-b border-border-soft pb-3 flex items-center gap-2">
                 <Sprout className="w-4.5 h-4.5 text-primary-800 shrink-0" />
@@ -235,7 +226,7 @@ export const SoilAdvisory = () => {
               </h4>
               
               <ul className="list-disc pl-4 space-y-3 text-xs text-text-muted font-medium leading-relaxed">
-                {soilData.suggestions.map((s, idx) => (
+                {(soilData.suggestions || []).map((s, idx) => (
                   <li key={idx} className="marker:text-primary-800">
                     {s}
                   </li>

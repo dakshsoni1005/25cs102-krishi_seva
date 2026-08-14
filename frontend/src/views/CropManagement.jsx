@@ -15,7 +15,7 @@ import {
 import { Plus, CheckCircle, Circle, Cpu, Sprout, Calendar, Info } from "lucide-react";
 import { cropService } from "../services/cropService";
 import { smartKrishiService } from "../services/smartKrishiService";
-import { mockStageGlossary } from "../mock/crops";
+import { stageGlossary } from "../config/constants";
 
 export const CropManagement = () => {
   const { t, addLocalNotification } = useApp();
@@ -292,7 +292,7 @@ export const CropManagement = () => {
                     {(selectedCrop.timeline || []).map((item, idx) => {
                       const isActive = item.status === "active";
                       const isCompleted = item.status === "completed";
-                      const stageDescription = mockStageGlossary[item.stage] || "Growth phase monitoring for optimal crop yield.";
+                      const stageDescription = stageGlossary[item.stage] || "Growth phase monitoring for optimal crop yield.";
                       
                       return (
                         <div key={idx} className="relative flex items-start gap-4 group">

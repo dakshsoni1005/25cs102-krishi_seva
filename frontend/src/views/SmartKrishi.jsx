@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import { useApp } from "../context/AppContext";
 import {
   Card,
-  Badge,
   Button,
   RecommendationCard,
   LoadingSkeleton,
@@ -11,31 +10,40 @@ import {
 } from "../components/common";
 import {
   Cpu,
-  Sprout,
-  User,
-  CloudRain,
-  Timer,
   SlidersHorizontal,
-  ChevronDown,
-  Info
+  Info,
+  RefreshCw,
+  MapPin,
+  Sprout,
+  Sun
 } from "lucide-react";
-import { recommendationService } from "../services/recommendationService";
+import { smartKrishiService } from "../services/smartKrishiService";
 
 export const SmartKrishi = () => {
   const { farmer, t, addLocalNotification } = useApp();
 
   const [loading, setLoading] = useState(true);
   const [recommendations, setRecommendations] = useState([]);
+  const [pipelineSource, setPipelineSource] = useState("smart_krishi");
   const [activeCategory, setActiveCategory] = useState("all");
   const [activePriority, setActivePriority] = useState("all");
+
+  // Selection state parameters
+  const [selectedDistrict, setSelectedDistrict] = useState(farmer?.district || "Rajkot");
+  const [selectedCrop, setSelectedCrop] = useState(farmer?.mainCrop || "Cotton");
+  const [selectedSeason, setSelectedSeason] = useState("Kharif");
+
+  const districtsList = ["Rajkot", "Anand", "Patan", "Surat", "Kachchh", "Ahmedabad", "Mehsana"];
+  const cropsList = ["Cotton", "Groundnut", "Wheat", "Bajra", "Paddy", "Castor", "Mustard", "Sesame", "Sugarcane", "Tobacco"];
+  const seasonsList = ["Kharif", "Rabi", "Zaid"];
 
   const categories = [
     { id: "all", label: "All Advisors" },
     { id: "Irrigation", label: "Irrigation" },
     { id: "Fertilizer", label: "Fertilizers" },
-    { id: "Pest Control", label: "Pest Control" },
-    { id: "Crop Health", label: "Crop Health" },
-    { id: "Market Timing", label: "Market Timing" }
+    { id: "Pest", label: "Pest Control" },
+    { id: "Weather", label: "Weather Warnings" },
+    { id: "Market", label: "Market Timing" }
   ];
 
   const priorities = [
@@ -45,19 +53,31 @@ export const SmartKrishi = () => {
     { id: "LOW", label: "Low Priority" }
   ];
 
-  useEffect(() => {
-    const fetchRecs = async () => {
-      try {
-        setLoading(true);
-        const data = await recommendationService.getRecommendations();
-        setRecommendations(data);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
+  const fetchPipelineRecs = async (params = {}) => {
+    try {
+      setLoading(true);
+      const payload = {
+        district: params.district || selectedDistrict,
+        crop: params.crop || selectedCrop,
+        season: params.season || selectedSeason
+      };
+
+      const res = await smartKrishiService.getRecommendations(payload);
+      if (res && res.recommendations) {
+        setRecommendations(res.recommendations);
+        setPipelineSource(res.source || "smart_krishi");
+      } else if (Array.isArray(res)) {
+        setRecommendations(res);
       }
-    };
-    fetchRecs();
+    } catch (err) {
+      console.error("Smart Krishi advisory pipeline error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPipelineRecs();
   }, []);
 
   const handleResolveAction = (rec) => {
@@ -67,12 +87,11 @@ export const SmartKrishi = () => {
       "AI Recommendation",
       "medium"
     );
-    // Remove completed from screen or just show toast
     alert(`Action initiated: ${rec.action}\n\nExpected Benefit: ${rec.benefit}`);
   };
 
   const filteredRecs = recommendations.filter((r) => {
-    const catMatch = activeCategory === "all" || r.category.toLowerCase() === activeCategory.toLowerCase();
+    const catMatch = activeCategory === "all" || r.category.toLowerCase().includes(activeCategory.toLowerCase());
     const priMatch = activePriority === "all" || r.priority.toUpperCase() === activePriority.toUpperCase();
     return catMatch && priMatch;
   });
@@ -83,44 +102,83 @@ export const SmartKrishi = () => {
       {/* Page Header */}
       <PageHeader
         title={t("smartKrishi")}
-        subtitle="Central AI intelligence compiling weather forecasting, soil tests, and market signals into direct field operations."
+        subtitle="Central AI intelligence pipeline compiling weather forecasting, soil tests, and market signals into direct field operations."
       />
 
-      {/* 1. FARMER PROFILE CONTEXT BOARD */}
+      {/* 1. SELECTION & PIPELINE CONTROLS BOARD */}
       <Card className="bg-white border border-border-soft p-5">
-        <div className="flex items-center gap-2 border-b border-border-soft pb-3 mb-4">
-          <Cpu className="w-5 h-5 text-primary-800 shrink-0" />
-          <h3 className="font-extrabold text-base text-text-dark leading-none">Active Intelligence Parameters</h3>
+        <div className="flex items-center justify-between border-b border-border-soft pb-3 mb-4">
+          <div className="flex items-center gap-2">
+            <Cpu className="w-5 h-5 text-primary-800 shrink-0" />
+            <h3 className="font-extrabold text-base text-text-dark leading-none">Smart Krishi Pipeline Parameters</h3>
+          </div>
+
+          <span className="text-[10px] bg-primary-50 text-primary-800 font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border border-primary-200">
+            Source: {pipelineSource === "smart_krishi" ? "Smart Krishi Engine" : "Local Agronomy Engine"}
+          </span>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-xs font-semibold text-text-muted">
-          <div className="flex flex-col gap-1.5 p-3.5 bg-surface-soft/60 rounded-lg border border-border-soft/40">
-            <span className="text-[10px] uppercase font-bold text-text-muted">Farmer Location</span>
-            <span className="text-text-dark font-extrabold truncate">{farmer?.village}, {farmer?.district}</span>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+          {/* District selector */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-bold text-text-muted flex items-center gap-1">
+              <MapPin className="w-3.5 h-3.5 text-primary-800" />
+              Target District
+            </label>
+            <select
+              value={selectedDistrict}
+              onChange={(e) => setSelectedDistrict(e.target.value)}
+              className="bg-surface-soft border border-border-soft text-text-dark text-xs rounded-lg px-3 py-2 font-bold outline-hidden focus:border-primary-800"
+            >
+              {districtsList.map((d) => (
+                <option key={d} value={d}>{d}</option>
+              ))}
+            </select>
           </div>
 
-          <div className="flex flex-col gap-1.5 p-3.5 bg-surface-soft/60 rounded-lg border border-border-soft/40">
-            <span className="text-[10px] uppercase font-bold text-text-muted">Crop Under Cultivation</span>
-            <span className="text-text-dark font-extrabold truncate">{farmer?.mainCrop}</span>
+          {/* Crop selector */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-bold text-text-muted flex items-center gap-1">
+              <Sprout className="w-3.5 h-3.5 text-primary-800" />
+              Cultivated Crop
+            </label>
+            <select
+              value={selectedCrop}
+              onChange={(e) => setSelectedCrop(e.target.value)}
+              className="bg-surface-soft border border-border-soft text-text-dark text-xs rounded-lg px-3 py-2 font-bold outline-hidden focus:border-primary-800"
+            >
+              {cropsList.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
           </div>
 
-          <div className="flex flex-col gap-1.5 p-3.5 bg-surface-soft/60 rounded-lg border border-border-soft/40">
-            <span className="text-[10px] uppercase font-bold text-text-muted">Soil Profile</span>
-            <span className="text-text-dark font-extrabold truncate">Medium Black Clay</span>
+          {/* Season selector */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-bold text-text-muted flex items-center gap-1">
+              <Sun className="w-3.5 h-3.5 text-primary-800" />
+              Cropping Season
+            </label>
+            <select
+              value={selectedSeason}
+              onChange={(e) => setSelectedSeason(e.target.value)}
+              className="bg-surface-soft border border-border-soft text-text-dark text-xs rounded-lg px-3 py-2 font-bold outline-hidden focus:border-primary-800"
+            >
+              {seasonsList.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
           </div>
 
-          <div className="flex flex-col gap-1.5 p-3.5 bg-surface-soft/60 rounded-lg border border-border-soft/40">
-            <span className="text-[10px] uppercase font-bold text-text-muted">Irrigation Method</span>
-            <span className="text-text-dark font-extrabold truncate">{farmer?.irrigationType}</span>
-          </div>
-
-          <div className="flex flex-col gap-1.5 p-3.5 bg-surface-soft/60 rounded-lg border border-border-soft/40 col-span-2 md:col-span-1">
-            <span className="text-[10px] uppercase font-bold text-text-muted">Micro-Climate Warning</span>
-            <span className="text-rose-600 font-extrabold flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping shrink-0" />
-              Heavy Rain Alerts
-            </span>
-          </div>
+          {/* Submit refresh button */}
+          <Button
+            onClick={() => fetchPipelineRecs()}
+            disabled={loading}
+            className="w-full h-[38px] flex items-center justify-center gap-2"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+            Evaluate Pipeline
+          </Button>
         </div>
       </Card>
 
@@ -173,7 +231,7 @@ export const SmartKrishi = () => {
       ) : filteredRecs.length === 0 ? (
         <EmptyState
           title="No Advisory Recommendations Found"
-          description="Try changing your filters or searching across other categories to explore recommendations."
+          description="Try changing your crop or season selection parameters to explore recommendations."
           actionLabel="Clear Filters"
           onAction={() => { setActiveCategory("all"); setActivePriority("all"); }}
           icon={Cpu}
@@ -194,7 +252,7 @@ export const SmartKrishi = () => {
       <div className="flex items-start gap-2.5 bg-primary-50 text-primary-800 border border-primary-100 rounded-xl p-4 text-xs leading-relaxed font-semibold">
         <Info className="w-5 h-5 text-primary-800 shrink-0 mt-0.5" />
         <div>
-          <b>How AI recommendations work:</b> KrishiSeva aggregates real-time agricultural data. Recommendations are recalculated when your weather alerts update or when soil samples are logged in the **Soil Advisory** module.
+          <b>Smart Krishi Pipeline Architecture:</b> Recommendations are evaluated by passing parameters ({selectedDistrict}, {selectedCrop}, {selectedSeason}) through the Smart Krishi service adapter.
         </div>
       </div>
 

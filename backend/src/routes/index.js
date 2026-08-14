@@ -7,6 +7,7 @@ const farmersRouter = require("../modules/farmers/farmers.routes");
 const farmsRouter = require("../modules/farms/farms.routes");
 const cropsRouter = require("../modules/crop-management/crop.routes");
 const smartKrishiRouter = require("../modules/smart-krishi/smartKrishi.routes");
+const smartKrishiController = require("../modules/smart-krishi/smartKrishi.controller");
 const pestScannerRouter = require("../modules/pest-scanner/pestScanner.routes");
 const aiGuruRouter = require("../modules/ai-guru/aiGuru.routes");
 const soilRouter = require("../modules/soil-advisory/soil.routes");
@@ -35,6 +36,9 @@ router.get("/health", (req, res) => {
     }
   });
 });
+
+// Integration Specific Health Checks
+router.get("/integrations/smart-krishi/health", smartKrishiController.getHealth);
 
 // Register Feature Sub-Routers
 router.use("/auth", authRouter);

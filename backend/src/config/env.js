@@ -24,5 +24,9 @@ module.exports = {
   
   CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME || "",
   CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY || "",
-  CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET || ""
+  CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET || "",
+
+  SMART_KRISHI_API_URL: process.env.SMART_KRISHI_API_URL || "http://localhost:5001",
+  SMART_KRISHI_TIMEOUT_MS: parseInt(process.env.SMART_KRISHI_TIMEOUT_MS || "15000", 10),
+  SMART_KRISHI_API_KEY: process.env.SMART_KRISHI_API_KEY || ""
 };

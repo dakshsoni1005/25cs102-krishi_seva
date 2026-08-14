@@ -8,8 +8,10 @@ const logger = require("../../utils/logger");
 const getRecommendations = async (farmerId, bodyParams = {}) => {
   logger.info(`Executing Smart Krishi Integration Pipeline for farmerId: ${farmerId}`);
 
-  // 1. Fetch authenticated farmer context
-  const profile = await FarmerProfile.findOne({ userId: farmerId });
+  const mongoose = require("mongoose");
+  const profile = farmerId && mongoose.Types.ObjectId.isValid(farmerId)
+    ? await FarmerProfile.findOne({ userId: farmerId })
+    : null;
 
   // 2. Build payload { district, crop, season }
   const payload = buildSmartKrishiPayload(profile, bodyParams);

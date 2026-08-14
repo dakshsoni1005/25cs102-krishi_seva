@@ -1,0 +1,26 @@
+# Node.js binary folders & archives
+node-v*/
+naitri_project-main/node-v*/
+*.zip
+*.tar.gz
+node_modules/
+naitri_project-main/node_modules/
+
+# Local env files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Log files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# Editor and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

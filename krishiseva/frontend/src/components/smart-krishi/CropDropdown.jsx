@@ -2,10 +2,60 @@ import React, { useState, useEffect } from 'react';
 import { getCropsByDistrict, getCrops } from '../../services/smartKrishiService';
 import { Sprout } from 'lucide-react';
 
+const FALLBACK_DISTRICT_CROP_MAP = {
+  "Rajkot": ["Cotton", "Groundnut", "Wheat", "Bajra", "Sesame", "Castor"],
+  "Amreli": ["Groundnut", "Cotton", "Sesame", "Bajra", "Wheat"],
+  "Bhavnagar": ["Cotton", "Groundnut", "Wheat", "Bajra", "Sesame"],
+  "Jamnagar": ["Groundnut", "Cotton", "Wheat", "Castor", "Sesame"],
+  "Junagadh": ["Groundnut", "Cotton", "Wheat", "Sesame", "Bajra"],
+  "Morbi": ["Cotton", "Groundnut", "Sesame", "Castor", "Wheat"],
+  "Porbandar": ["Groundnut", "Cotton", "Wheat", "Sesame"],
+  "Surendranagar": ["Cotton", "Sesame", "Bajra", "Wheat", "Groundnut"],
+  "Botad": ["Cotton", "Groundnut", "Wheat", "Sesame"],
+  "Devbhoomi Dwarka": ["Groundnut", "Cotton", "Wheat", "Sesame"],
+  "Gir Somnath": ["Groundnut", "Cotton", "Wheat", "Sugarcane", "Sesame"],
+
+  "Anand": ["Tobacco", "Paddy", "Wheat", "Cotton", "Groundnut", "Castor"],
+  "Kheda": ["Paddy", "Tobacco", "Wheat", "Cotton", "Castor", "Mustard"],
+  "Ahmedabad": ["Cotton", "Wheat", "Paddy", "Castor", "Bajra", "Mustard"],
+  "Vadodara": ["Cotton", "Paddy", "Wheat", "Sugarcane", "Castor"],
+  "Panchmahal": ["Paddy", "Wheat", "Cotton", "Castor", "Groundnut"],
+  "Dahod": ["Paddy", "Wheat", "Cotton", "Groundnut"],
+  "Mahisagar": ["Paddy", "Wheat", "Tobacco", "Cotton"],
+  "Chhota Udepur": ["Cotton", "Paddy", "Groundnut", "Wheat"],
+
+  "Banaskantha": ["Mustard", "Bajra", "Castor", "Groundnut", "Wheat"],
+  "Patan": ["Mustard", "Bajra", "Castor", "Wheat", "Cotton", "Sesame"],
+  "Mehsana": ["Mustard", "Tobacco", "Castor", "Wheat", "Cotton", "Bajra"],
+  "Sabarkantha": ["Cotton", "Groundnut", "Wheat", "Castor"],
+  "Gandhinagar": ["Wheat", "Cotton", "Castor", "Paddy", "Mustard"],
+  "Aravalli": ["Cotton", "Groundnut", "Wheat", "Castor"],
+
+  "Surat": ["Sugarcane", "Paddy", "Cotton", "Wheat"],
+  "Navsari": ["Paddy", "Sugarcane", "Wheat"],
+  "Valsad": ["Paddy", "Sugarcane", "Wheat"],
+  "Bharuch": ["Cotton", "Paddy", "Wheat", "Sugarcane", "Castor"],
+  "Narmada": ["Cotton", "Paddy", "Sugarcane", "Wheat"],
+  "Tapi": ["Paddy", "Sugarcane", "Cotton", "Wheat"],
+  "Dang": ["Paddy", "Groundnut", "Wheat"],
+
+  "Kachchh": ["Castor", "Bajra", "Groundnut", "Cotton", "Mustard", "Sesame"]
+};
+
+const DEFAULT_CROPS = ["Cotton", "Groundnut", "Wheat", "Bajra", "Castor", "Sesame"];
+
 const CropDropdown = ({ value, onChange, district }) => {
   const [crops, setCrops] = useState([]);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+
+  const getFallbackCrops = (d) => {
+    if (!d) return DEFAULT_CROPS;
+    const matchKey = Object.keys(FALLBACK_DISTRICT_CROP_MAP).find(
+      k => k.toLowerCase() === d.toLowerCase()
+    );
+    return matchKey ? FALLBACK_DISTRICT_CROP_MAP[matchKey] : DEFAULT_CROPS;
+  };
 
   useEffect(() => {
     if (district === undefined) {
@@ -17,15 +67,13 @@ const CropDropdown = ({ value, onChange, district }) => {
             const list = res.data || [];
             setCrops(list.map(c => c.name || c) || []);
           } else {
-            setCrops([]);
-            setErrorMsg('Failed to load crops.');
+            setCrops(DEFAULT_CROPS);
           }
           setLoading(false);
         })
         .catch(err => {
           console.error('Failed to load all crops:', err);
-          setCrops([]);
-          setErrorMsg('Failed to load crops.');
+          setCrops(DEFAULT_CROPS);
           setLoading(false);
         });
       return;
@@ -50,16 +98,19 @@ const CropDropdown = ({ value, onChange, district }) => {
           fetchedCrops = res.map(c => c.name || c);
         }
 
-        setCrops(fetchedCrops);
         if (fetchedCrops.length === 0) {
-          setErrorMsg('No suitable crops found for this district.');
+          fetchedCrops = getFallbackCrops(district);
         }
+
+        setCrops(fetchedCrops);
+        setErrorMsg('');
         setLoading(false);
       })
       .catch(err => {
         console.error('Failed to load crops for district:', err);
-        setCrops([]);
-        setErrorMsg('No suitable crops found for this district.');
+        const fb = getFallbackCrops(district);
+        setCrops(fb);
+        setErrorMsg('');
         setLoading(false);
       });
   }, [district]);

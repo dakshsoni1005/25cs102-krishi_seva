@@ -1,8 +1,0 @@
-const express = require('express');
-const router = express.Router();
-const districtController = require('../controllers/districtController');
-
-router.get('/', districtController.getAllDistricts);
-router.get('/:id', districtController.getDistrictById);
-
-module.exports = router;

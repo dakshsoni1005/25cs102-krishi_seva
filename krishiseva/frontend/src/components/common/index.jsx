@@ -15,20 +15,20 @@ export const Button = ({
   icon: Icon,
   ...props
 }) => {
-  const baseStyles = "inline-flex items-center justify-center font-medium rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none cursor-pointer";
+  const baseStyles = "inline-flex items-center justify-center font-semibold rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-50 disabled:pointer-events-none cursor-pointer active:scale-[0.98]";
   
   const variants = {
-    primary: "bg-primary-800 text-white hover:bg-primary-700 active:bg-primary-900 focus:ring-primary-600 shadow-sm",
-    secondary: "bg-primary-100 text-primary-800 hover:bg-primary-200 active:bg-primary-300 focus:ring-primary-300",
-    outline: "border border-border-soft text-text-dark bg-transparent hover:bg-surface-soft active:bg-primary-50 focus:ring-primary-600",
-    ghost: "text-text-dark bg-transparent hover:bg-surface-soft active:bg-primary-100 focus:ring-primary-600",
-    danger: "bg-red-600 text-white hover:bg-red-700 active:bg-red-800 focus:ring-red-500 shadow-sm"
+    primary: "bg-emerald-700 text-white hover:bg-emerald-800 active:bg-emerald-900 focus:ring-emerald-600 shadow-xs hover:shadow-sm",
+    secondary: "bg-emerald-50 text-emerald-800 hover:bg-emerald-100 active:bg-emerald-200 focus:ring-emerald-300 border border-emerald-200",
+    outline: "border border-slate-200 text-slate-800 bg-white hover:bg-slate-50 hover:border-slate-300 active:bg-slate-100 focus:ring-slate-400 shadow-2xs",
+    ghost: "text-slate-700 bg-transparent hover:bg-slate-100/80 active:bg-slate-200 focus:ring-slate-400",
+    danger: "bg-rose-600 text-white hover:bg-rose-700 active:bg-rose-800 focus:ring-rose-500 shadow-xs"
   };
 
   const sizes = {
     sm: "px-3 py-1.5 text-xs gap-1.5",
-    md: "px-4 py-2 text-sm gap-2",
-    lg: "px-5 py-2.5 text-base gap-2.5"
+    md: "px-4 py-2 text-xs font-bold gap-2",
+    lg: "px-5 py-2.5 text-sm font-bold gap-2.5"
   };
 
   return (
@@ -58,8 +58,8 @@ export const Card = ({
   return (
     <div
       onClick={onClick}
-      className={`bg-white border border-border-soft rounded-xl shadow-xs p-5 transition-all duration-200 ${
-        hoverable ? "hover:shadow-md hover:border-primary-200 cursor-pointer hover:-translate-y-0.5" : ""
+      className={`bg-white border border-slate-200/80 rounded-2xl shadow-2xs p-5 transition-all duration-200 ${
+        hoverable ? "hover:shadow-md hover:border-emerald-300/80 cursor-pointer hover:-translate-y-0.5" : ""
       } ${className}`}
       {...props}
     >
@@ -77,15 +77,15 @@ export const Badge = ({
   className = ""
 }) => {
   const variants = {
-    primary: "bg-primary-100 text-primary-800 border border-primary-200",
-    info: "bg-blue-50 text-blue-800 border border-blue-100",
-    success: "bg-emerald-50 text-emerald-800 border border-emerald-100",
-    warning: "bg-amber-50 text-amber-800 border border-amber-100",
-    danger: "bg-rose-50 text-rose-800 border border-rose-100"
+    primary: "bg-emerald-50 text-emerald-800 border border-emerald-200/80",
+    info: "bg-sky-50 text-sky-800 border border-sky-200/80",
+    success: "bg-emerald-50 text-emerald-800 border border-emerald-200/80",
+    warning: "bg-amber-50 text-amber-900 border border-amber-200/80",
+    danger: "bg-rose-50 text-rose-800 border border-rose-200/80"
   };
 
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wider ${variants[variant]} ${className}`}>
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wider ${variants[variant]} ${className}`}>
       {children}
     </span>
   );

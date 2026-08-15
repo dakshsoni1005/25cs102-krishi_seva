@@ -157,8 +157,10 @@ const getDatasetRecommendation = async (params = {}, farmerId = null) => {
     const districtSoilType = districtRecords.length > 0 && districtRecords[0].soil ? districtRecords[0].soil.type : (DISTRICT_SOIL_MAPPING[districtName] || "Medium Black Soil");
 
     if (match) {
-      const suitableSoils = (match.crop && match.crop.suitableSoils) || ["Black", "Medium Black", "Alluvial", "Loamy"];
-      const suitable = isSoilSuitable(districtSoilType, suitableSoils);
+      const isDistrictMatch = districtRecords.some((r) => r.input && r.input.crop && r.input.crop.toLowerCase() === cropName.toLowerCase());
+      const isMappedCrop = DISTRICT_CROP_MAPPING[districtName] && DISTRICT_CROP_MAPPING[districtName].some((c) => c.toLowerCase() === cropName.toLowerCase());
+      const suitableSoils = (match.crop && match.crop.suitableSoils) || ["Black", "Medium Black", "Alluvial", "Loamy", "Sandy", "Sandy Loam", "Goradu", "Desert"];
+      const suitable = isDistrictMatch || isMappedCrop || isSoilSuitable(districtSoilType, suitableSoils);
 
       if (!suitable) {
         // Collect recommended crops for this district soil

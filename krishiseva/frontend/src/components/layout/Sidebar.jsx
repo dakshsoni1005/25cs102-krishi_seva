@@ -297,21 +297,28 @@ export const Sidebar = ({ children }) => {
       {/* 4. MAIN BODY CONTAINER */}
       <div className="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto">
         {/* DESKTOP TOP HEADER */}
-        <header className="hidden md:flex h-16 border-b border-border-soft bg-white items-center justify-between px-8 sticky top-0 z-20 select-none">
+        <header className="hidden md:flex h-16 border-b border-slate-200/80 bg-white/90 backdrop-blur-md items-center justify-between px-8 sticky top-0 z-20 select-none shadow-2xs">
           {/* Active Context Indicators */}
-          <div className="flex items-center gap-4 text-xs font-semibold text-text-muted">
+          <div className="flex items-center gap-3 text-xs font-semibold text-slate-500">
             {farmer && (
-              <div className="flex items-center gap-1.5 bg-surface-soft px-3 py-1.5 rounded-lg border border-border-soft">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                <span>
-                  {t("location")}: <b>{farmer.village}, {farmer.taluka}, {farmer.district}</b>
+              <div className="flex items-center gap-2 bg-emerald-50/80 px-3.5 py-1.5 rounded-xl border border-emerald-100/80 shadow-2xs">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-slate-600 text-xs">
+                  {t("location")}: <b className="text-emerald-950 font-bold">{
+                    [farmer.village, farmer.taluka, farmer.district]
+                      .filter(Boolean)
+                      .map(s => s.trim())
+                      .filter((val, index, self) => val && self.findIndex(v => v.toLowerCase() === val.toLowerCase()) === index)
+                      .map(s => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase())
+                      .join(", ")
+                  }</b>
                 </span>
               </div>
             )}
-            <div className="flex items-center gap-1.5 bg-surface-soft px-3 py-1.5 rounded-lg border border-border-soft">
-              <span className="w-1.5 h-1.5 rounded-full bg-primary-800" />
-              <span>
-                Language: <b>{getLanguageLabel()}</b>
+            <div className="flex items-center gap-2 bg-slate-100/70 px-3.5 py-1.5 rounded-xl border border-slate-200/80">
+              <span className="w-2 h-2 rounded-full bg-emerald-700" />
+              <span className="text-slate-600 text-xs">
+                Language: <b className="text-slate-900 font-bold">{getLanguageLabel()}</b>
               </span>
             </div>
           </div>
@@ -322,32 +329,32 @@ export const Sidebar = ({ children }) => {
             <div className="relative">
               <button
                 onClick={() => setShowLangMenu(!showLangMenu)}
-                className="flex items-center gap-1.5 p-2 rounded-lg text-text-muted hover:bg-surface-soft cursor-pointer hover:text-text-dark"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-slate-600 bg-slate-100/70 hover:bg-slate-200/60 border border-slate-200/80 cursor-pointer hover:text-slate-900 transition-all text-xs font-bold"
                 title="Select Language"
               >
-                <Globe className="w-4.5 h-4.5" />
-                <span className="text-xs font-semibold uppercase">{language}</span>
+                <Globe className="w-4 h-4 text-emerald-700" />
+                <span className="uppercase tracking-wider">{language}</span>
               </button>
               
               {showLangMenu && (
                 <>
                   <div className="fixed inset-0 z-30" onClick={() => setShowLangMenu(false)} />
-                  <div className="absolute right-0 mt-1 w-32 bg-white border border-border-soft rounded-lg shadow-lg z-40 py-1 text-sm">
+                  <div className="absolute right-0 mt-2 w-36 bg-white border border-slate-200 rounded-2xl shadow-xl z-40 py-1.5 text-xs overflow-hidden">
                     <button
                       onClick={() => toggleLanguage("en")}
-                      className={`w-full text-left px-3.5 py-2 hover:bg-surface-soft cursor-pointer font-medium ${language === "en" ? "text-primary-800 font-bold" : "text-text-dark"}`}
+                      className={`w-full text-left px-4 py-2 hover:bg-emerald-50/80 cursor-pointer font-bold ${language === "en" ? "text-emerald-800 bg-emerald-50/50" : "text-slate-700"}`}
                     >
                       English
                     </button>
                     <button
                       onClick={() => toggleLanguage("gu")}
-                      className={`w-full text-left px-3.5 py-2 hover:bg-surface-soft cursor-pointer font-medium ${language === "gu" ? "text-primary-800 font-bold" : "text-text-dark"}`}
+                      className={`w-full text-left px-4 py-2 hover:bg-emerald-50/80 cursor-pointer font-bold ${language === "gu" ? "text-emerald-800 bg-emerald-50/50" : "text-slate-700"}`}
                     >
                       ગુજરાતી
                     </button>
                     <button
                       onClick={() => toggleLanguage("hi")}
-                      className={`w-full text-left px-3.5 py-2 hover:bg-surface-soft cursor-pointer font-medium ${language === "hi" ? "text-primary-800 font-bold" : "text-text-dark"}`}
+                      className={`w-full text-left px-4 py-2 hover:bg-emerald-50/80 cursor-pointer font-bold ${language === "hi" ? "text-emerald-800 bg-emerald-50/50" : "text-slate-700"}`}
                     >
                       हिन्दी
                     </button>
@@ -359,21 +366,21 @@ export const Sidebar = ({ children }) => {
             {/* Notification Badge Bell */}
             <Link
               to="/notifications"
-              className="p-2 rounded-lg text-text-muted hover:bg-surface-soft hover:text-text-dark relative cursor-pointer"
+              className="p-2 rounded-xl text-slate-500 bg-slate-100/70 hover:bg-slate-200/60 border border-slate-200/80 hover:text-slate-900 relative cursor-pointer transition-all"
             >
-              <Bell className="w-5 h-5" />
+              <Bell className="w-4.5 h-4.5" />
               {unreadNotificationsCount > 0 && (
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-500 rounded-full animate-ping" />
+                <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-rose-500 rounded-full animate-ping" />
               )}
             </Link>
 
-            <div className="w-px h-5 bg-border-soft" />
+            <div className="w-px h-5 bg-slate-200" />
 
             {/* Mini User Profile card */}
             {farmer && (
-              <Link to="/profile" className="flex items-center gap-2 group cursor-pointer">
-                <Avatar name={farmer.fullName} className="w-8.5 h-8.5 group-hover:border-primary-600 transition-colors" />
-                <span className="text-sm font-bold text-text-dark group-hover:text-primary-800 transition-colors">
+              <Link to="/profile" className="flex items-center gap-2.5 group cursor-pointer bg-slate-50 hover:bg-emerald-50/60 p-1 pr-3 rounded-2xl border border-slate-200/80 hover:border-emerald-200 transition-all">
+                <Avatar name={farmer.fullName} className="w-8 h-8 group-hover:border-emerald-600 transition-colors shadow-2xs" />
+                <span className="text-xs font-extrabold text-slate-900 group-hover:text-emerald-800 transition-colors">
                   {farmer.fullName}
                 </span>
               </Link>

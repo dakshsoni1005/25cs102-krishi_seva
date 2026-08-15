@@ -2,6 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { getDistricts } from '../../services/smartKrishiService';
 import { MapPin } from 'lucide-react';
 
+const DEFAULT_GUJARAT_DISTRICTS = [
+  "Ahmedabad", "Amreli", "Anand", "Aravalli", "Banaskantha", "Bharuch", "Bhavnagar", 
+  "Botad", "Chhota Udepur", "Dahod", "Dang", "Devbhoomi Dwarka", "Gandhinagar", 
+  "Gir Somnath", "Jamnagar", "Junagadh", "Kachchh", "Kheda", "Mahisagar", "Mehsana", 
+  "Morbi", "Narmada", "Navsari", "Panchmahal", "Patan", "Porbandar", "Rajkot", 
+  "Sabarkantha", "Surat", "Surendranagar", "Tapi", "Vadodara", "Valsad"
+];
+
 const DistrictDropdown = ({ value, onChange }) => {
   const [districts, setDistricts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -9,15 +17,25 @@ const DistrictDropdown = ({ value, onChange }) => {
   useEffect(() => {
     getDistricts()
       .then(res => {
-        if (res && res.success) {
-          setDistricts(res.data || []);
-        } else if (Array.isArray(res)) {
-          setDistricts(res);
+        let list = [];
+        if (Array.isArray(res)) {
+          list = res;
+        } else if (res && Array.isArray(res.data)) {
+          list = res.data;
+        } else if (res && Array.isArray(res.districts)) {
+          list = res.districts;
+        }
+        
+        if (list.length > 0) {
+          setDistricts(list);
+        } else {
+          setDistricts(DEFAULT_GUJARAT_DISTRICTS);
         }
         setLoading(false);
       })
       .catch(err => {
         console.error('Failed to load districts:', err);
+        setDistricts(DEFAULT_GUJARAT_DISTRICTS);
         setLoading(false);
       });
   }, []);

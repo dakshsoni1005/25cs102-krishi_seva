@@ -41,14 +41,17 @@ const CropDropdown = ({ value, onChange, district }) => {
     setErrorMsg('');
     getCropsByDistrict(district)
       .then(res => {
-        if (res && res.success) {
-          const fetchedCrops = res.crops || [];
-          setCrops(fetchedCrops);
-          if (fetchedCrops.length === 0) {
-            setErrorMsg('No suitable crops found for this district.');
-          }
-        } else {
-          setCrops([]);
+        let fetchedCrops = [];
+        if (res && Array.isArray(res.crops)) {
+          fetchedCrops = res.crops;
+        } else if (res && Array.isArray(res.data)) {
+          fetchedCrops = res.data.map(c => c.name || c);
+        } else if (Array.isArray(res)) {
+          fetchedCrops = res.map(c => c.name || c);
+        }
+
+        setCrops(fetchedCrops);
+        if (fetchedCrops.length === 0) {
           setErrorMsg('No suitable crops found for this district.');
         }
         setLoading(false);

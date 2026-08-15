@@ -11,7 +11,8 @@
   --color-primary-500: #22c55e;
   --color-primary-600: #16a34a;
   --color-primary-700: #15803d;
-  --color-primary-800: #064e3b; /* Deep Agricultural Emerald */
+  --color-primary-800: #064e3b;
+  /* Deep Agricultural Emerald */
   --color-primary-900: #022c22;
   --color-primary-950: #011c15;
 
@@ -20,15 +21,21 @@
   --color-accent-200: #a7f3d0;
   --color-accent-300: #6ee7b7;
   --color-accent-400: #34d399;
-  --color-accent-500: #10b981; /* Vibrant Fresh Green Accent */
+  --color-accent-500: #10b981;
+  /* Vibrant Fresh Green Accent */
   --color-accent-600: #059669;
   --color-accent-700: #047857;
 
-  --color-bg-warm: #f8faf9; /* Clean Modern Soft Mint/Slate */
-  --color-surface-soft: #f1f5f3; /* Crisp Neutral Surface */
-  --color-border-soft: #e2e8f0; /* Subtle border */
-  --color-text-dark: #0f172a; /* Deep Slate Text */
-  --color-text-muted: #64748b; /* Muted Slate */
+  --color-bg-warm: #f8faf9;
+  /* Clean Modern Soft Mint/Slate */
+  --color-surface-soft: #f1f5f3;
+  /* Crisp Neutral Surface */
+  --color-border-soft: #e2e8f0;
+  /* Subtle border */
+  --color-text-dark: #0f172a;
+  /* Deep Slate Text */
+  --color-text-muted: #64748b;
+  /* Muted Slate */
 }
 
 @layer base {
@@ -43,13 +50,16 @@
   width: 6px;
   height: 6px;
 }
+
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
 ::-webkit-scrollbar-thumb {
   background: #cbd5e1;
   border-radius: 9999px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
@@ -59,6 +69,7 @@
   0% {
     background-position: -200% 0;
   }
+
   100% {
     background-position: 200% 0;
   }
@@ -76,4 +87,3 @@
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 }
-

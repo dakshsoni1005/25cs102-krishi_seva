@@ -15,7 +15,7 @@ const generateChatResponse = async (prompt, systemInstruction = "") => {
   }
 
   const startTime = Date.now();
-  const modelsToTry = [env.GEMINI_MODEL || "gemini-1.5-flash", "gemini-2.0-flash", "gemini-2.5-flash", "gemini-1.5-pro"];
+  const modelsToTry = [env.GEMINI_MODEL || "gemini-1.5-flash", "gemini-2.0-flash"];
 
   let lastError = null;
   for (const currentModel of modelsToTry) {
@@ -32,7 +32,7 @@ const generateChatResponse = async (prompt, systemInstruction = "") => {
 
       const response = await axios.post(url, requestBody, {
         headers: { "Content-Type": "application/json" },
-        timeout: 10000
+        timeout: 3500 // Fast 3.5s timeout per model
       });
 
       const latency = Date.now() - startTime;

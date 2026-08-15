@@ -388,7 +388,12 @@ const getDatasetRecommendation = async (params = {}, farmerId = null) => {
     warnings: weatherAlerts
   };
 
-  const geminiAi = await fetchGeminiAdvisory(districtName, cropName, seasonName, districtSoilType, weatherData.current, weatherAlerts);
+  const fetchTimeout = new Promise((resolve) => setTimeout(() => resolve(null), 4000));
+  const geminiAi = await Promise.race([
+    fetchGeminiAdvisory(districtName, cropName, seasonName, districtSoilType, weatherData.current, weatherAlerts),
+    fetchTimeout
+  ]);
+
   if (geminiAi) {
     aiRecommendation = {
       ...aiRecommendation,

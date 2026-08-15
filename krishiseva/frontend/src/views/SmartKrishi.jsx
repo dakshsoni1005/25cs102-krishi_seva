@@ -12,7 +12,8 @@ import {
   IrrigationCard,
   DiseaseCard,
   PestCard,
-  AdvisoryCard
+  AdvisoryCard,
+  WeatherAlertsCard
 } from "../components/smart-krishi/SmartKrishiCards";
 import { getRecommendations } from "../services/smartKrishiService";
 import { HelpCircle, AlertOctagon } from "lucide-react";
@@ -114,6 +115,11 @@ export const SmartKrishi = () => {
           <div className="space-y-6">
             {/* AI Advisor Panel */}
             <AIRecommendationCard recommendation={result.recommendation} />
+
+            {/* Weather Alerts */}
+            {result.data.weatherAlerts && result.data.weatherAlerts.length > 0 && (
+              <WeatherAlertsCard alerts={result.data.weatherAlerts} />
+            )}
 
             {/* Warnings & Advisories */}
             {result.data.advisories && (

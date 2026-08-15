@@ -15,46 +15,49 @@ const generateChatResponse = async (prompt, systemInstruction = "") => {
   }
 
   const startTime = Date.now();
-  try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
-    
-    const requestBody = {
-      contents: [
-        {
-          role: "user",
-          parts: [{ text: systemInstruction ? `${systemInstruction}\n\nUser Question: ${prompt}` : prompt }]
-        }
-      ]
-    };
+  const modelsToTry = [env.GEMINI_MODEL || "gemini-1.5-flash", "gemini-2.0-flash", "gemini-2.5-flash", "gemini-1.5-pro"];
 
-    const response = await axios.post(url, requestBody, {
-      headers: { "Content-Type": "application/json" },
-      timeout: 10000 // 10 second timeout constraint
-    });
+  let lastError = null;
+  for (const currentModel of modelsToTry) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${currentModel}:generateContent?key=${apiKey}`;
+      const requestBody = {
+        contents: [
+          {
+            role: "user",
+            parts: [{ text: systemInstruction ? `${systemInstruction}\n\nUser Question: ${prompt}` : prompt }]
+          }
+        ]
+      };
 
-    const latency = Date.now() - startTime;
-    logger.info(`Gemini API Response received (${modelName}) in ${latency}ms`);
+      const response = await axios.post(url, requestBody, {
+        headers: { "Content-Type": "application/json" },
+        timeout: 10000
+      });
 
-    if (
-      response.data &&
-      response.data.candidates &&
-      response.data.candidates[0] &&
-      response.data.candidates[0].content &&
-      response.data.candidates[0].content.parts
-    ) {
-      return response.data.candidates[0].content.parts[0].text;
+      const latency = Date.now() - startTime;
+      logger.info(`Gemini API Response received (${currentModel}) in ${latency}ms`);
+
+      if (
+        response.data &&
+        response.data.candidates &&
+        response.data.candidates[0] &&
+        response.data.candidates[0].content &&
+        response.data.candidates[0].content.parts
+      ) {
+        return response.data.candidates[0].content.parts[0].text;
+      }
+    } catch (err) {
+      lastError = err;
     }
-
-    throw new Error("Invalid response schema returned by Gemini endpoint.");
-  } catch (error) {
-    const latency = Date.now() - startTime;
-    logger.error(`Gemini API Request Failed (${modelName}, ${latency}ms): ${error.message}`);
-    
-    const err = new Error("AI service is currently unavailable.");
-    err.statusCode = 503;
-    err.code = "AI_SERVICE_UNAVAILABLE";
-    throw err;
   }
+
+  const latency = Date.now() - startTime;
+  logger.error(`Gemini API Request Failed (${latency}ms): ${lastError ? lastError.message : 'Unknown error'}`);
+  const err = new Error("AI service is currently unavailable.");
+  err.statusCode = 503;
+  err.code = "AI_SERVICE_UNAVAILABLE";
+  throw err;
 };
 
 module.exports = {

@@ -457,3 +457,26 @@ export const AdvisoryCard = ({ advisories }) => {
     </Card>
   );
 };
+
+// 11. WEATHER ALERTS CARD
+export const WeatherAlertsCard = ({ alerts }) => {
+  if (!alerts || !Array.isArray(alerts) || alerts.length === 0) return null;
+
+  return (
+    <Card className="bg-amber-500/10 border border-amber-300 p-5 rounded-3xl shadow-xs">
+      <div className="flex items-center gap-2.5 mb-3">
+        <AlertTriangle className="w-5 h-5 text-amber-700" />
+        <h3 className="font-extrabold text-sm text-amber-950 m-0">Deterministic Weather Safety Alerts</h3>
+      </div>
+      <div className="space-y-2">
+        {alerts.map((alert, idx) => (
+          <div key={idx} className="flex items-center gap-2 text-xs font-bold text-amber-900 bg-white/80 p-2.5 rounded-xl border border-amber-200">
+            <span className="text-amber-600 font-extrabold">⚠️</span>
+            <span>{typeof alert === 'string' ? alert : alert.message || alert.title}</span>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+};
+

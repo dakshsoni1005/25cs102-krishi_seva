@@ -11,24 +11,14 @@ const getOverview = asyncHandler(async (req, res) => {
 
 const getRecommendations = asyncHandler(async (req, res) => {
   const queryOrBody = (req.body && Object.keys(req.body).length > 0) ? req.body : req.query;
-  try {
-    const data = await smartKrishiAdapter.getRecommendations(req.user ? req.user.userId : "guest", queryOrBody);
-    return ApiResponse.success(res, data, "Smart Krishi recommendations retrieved");
-  } catch (err) {
-    const fallbackData = await smartKrishiService.getDatasetRecommendation(queryOrBody, req.user ? req.user.userId : "guest");
-    return ApiResponse.success(res, fallbackData, "Local Smart Krishi dataset recommendations retrieved");
-  }
+  const result = await smartKrishiService.getDatasetRecommendation(queryOrBody, req.user ? req.user.userId : "guest");
+  return ApiResponse.success(res, result, "Smart Krishi decision recommendations retrieved successfully");
 });
 
 const refreshRecommendations = asyncHandler(async (req, res) => {
   const queryOrBody = (req.body && Object.keys(req.body).length > 0) ? req.body : req.query;
-  try {
-    const data = await smartKrishiAdapter.getRecommendations(req.user ? req.user.userId : "guest", queryOrBody);
-    return ApiResponse.success(res, data, "Smart Krishi recommendations refreshed");
-  } catch (err) {
-    const fallbackData = await smartKrishiService.getDatasetRecommendation(queryOrBody, req.user ? req.user.userId : "guest");
-    return ApiResponse.success(res, fallbackData, "Local Smart Krishi dataset recommendations refreshed");
-  }
+  const result = await smartKrishiService.getDatasetRecommendation(queryOrBody, req.user ? req.user.userId : "guest");
+  return ApiResponse.success(res, result, "Smart Krishi decision recommendations refreshed successfully");
 });
 
 // Feature proxy controllers

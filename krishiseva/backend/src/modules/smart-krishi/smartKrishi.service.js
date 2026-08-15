@@ -6,6 +6,7 @@ const SoilProfile = require("../../database/models/SoilProfile");
 const CropCycle = require("../../database/models/CropCycle");
 const PestScan = require("../../database/models/PestScan");
 const { fetchWeatherFromProvider } = require("../../integrations/weather/weather.client");
+const { generateChatResponse } = require("../../integrations/gemini/gemini.client");
 const { evaluateAllRules } = require("./rules");
 const logger = require("../../utils/logger");
 
@@ -130,136 +131,126 @@ const isSoilSuitable = (districtSoilType, suitableSoilsList) => {
   });
 };
 
+
+const DISTRICT_COORDINATES = {
+  "Rajkot": { lat: 22.3039, lon: 70.8022, region: "Saurashtra" },
+  "Amreli": { lat: 21.6032, lon: 71.2221, region: "Saurashtra" },
+  "Bhavnagar": { lat: 21.7645, lon: 72.1519, region: "Saurashtra" },
+  "Jamnagar": { lat: 22.4707, lon: 70.0577, region: "Saurashtra" },
+  "Junagadh": { lat: 21.5222, lon: 70.4579, region: "Saurashtra" },
+  "Morbi": { lat: 22.8173, lon: 70.8372, region: "Saurashtra" },
+  "Porbandar": { lat: 21.6417, lon: 69.6293, region: "Saurashtra" },
+  "Surendranagar": { lat: 22.7224, lon: 71.6370, region: "Saurashtra" },
+  "Botad": { lat: 22.1704, lon: 71.6684, region: "Saurashtra" },
+  "Devbhoomi Dwarka": { lat: 22.2035, lon: 69.6493, region: "Saurashtra" },
+  "Gir Somnath": { lat: 20.9026, lon: 70.3713, region: "Saurashtra" },
+  "Anand": { lat: 22.5645, lon: 72.9289, region: "Central Gujarat" },
+  "Kheda": { lat: 22.6916, lon: 72.8634, region: "Central Gujarat" },
+  "Ahmedabad": { lat: 23.0225, lon: 72.5714, region: "Central Gujarat" },
+  "Vadodara": { lat: 22.3072, lon: 73.1812, region: "Central Gujarat" },
+  "Panchmahal": { lat: 22.7780, lon: 73.6143, region: "Central Gujarat" },
+  "Dahod": { lat: 22.8373, lon: 74.2548, region: "Central Gujarat" },
+  "Mahisagar": { lat: 23.1311, lon: 73.6127, region: "Central Gujarat" },
+  "Chhota Udepur": { lat: 22.3108, lon: 74.0145, region: "Central Gujarat" },
+  "Banaskantha": { lat: 24.1724, lon: 72.4346, region: "North Gujarat" },
+  "Patan": { lat: 23.8493, lon: 72.1266, region: "North Gujarat" },
+  "Mehsana": { lat: 23.5880, lon: 72.3693, region: "North Gujarat" },
+  "Sabarkantha": { lat: 23.5976, lon: 72.9698, region: "North Gujarat" },
+  "Gandhinagar": { lat: 23.2156, lon: 72.6369, region: "North Gujarat" },
+  "Aravalli": { lat: 23.4642, lon: 73.3006, region: "North Gujarat" },
+  "Surat": { lat: 21.1702, lon: 72.8311, region: "South Gujarat" },
+  "Navsari": { lat: 20.9467, lon: 72.9520, region: "South Gujarat" },
+  "Valsad": { lat: 20.6100, lon: 72.9258, region: "South Gujarat" },
+  "Bharuch": { lat: 21.7051, lon: 72.9959, region: "South Gujarat" },
+  "Narmada": { lat: 21.8702, lon: 73.5026, region: "South Gujarat" },
+  "Tapi": { lat: 21.1124, lon: 73.3934, region: "South Gujarat" },
+  "Dang": { lat: 20.7547, lon: 73.6872, region: "South Gujarat" },
+  "Kachchh": { lat: 23.2420, lon: 69.6669, region: "Kachchh" }
+};
+
+const calculateWeatherAlerts = (weatherCurrent) => {
+  const alerts = [];
+  const rainProb = weatherCurrent.rainProbability || 0;
+  const humidity = weatherCurrent.humidity || 0;
+  const windSpeed = typeof weatherCurrent.windSpeed === 'number' ? weatherCurrent.windSpeed : parseFloat(weatherCurrent.windSpeed || 0);
+  const temp = weatherCurrent.temperature || weatherCurrent.temp || 0;
+
+  if (rainProb > 70) {
+    alerts.push("Skip irrigation today.");
+  }
+  if (humidity > 85) {
+    alerts.push("High fungal disease risk.");
+  }
+  if (windSpeed > 25) {
+    alerts.push("Avoid pesticide spraying.");
+  }
+  if (temp > 38) {
+    alerts.push("Heat stress alert.");
+  }
+
+  return alerts;
+};
+
+const fetchGeminiAdvisory = async (districtName, cropName, seasonName, districtSoilType, weatherCurrent, weatherAlerts) => {
+  try {
+    const prompt = `Act as an expert agricultural scientist for Gujarat. Provide a crop management advisory for cultivating "${cropName}" in "${districtName}" district during "${seasonName}" season.
+Context:
+- Soil: ${districtSoilType}
+- Live Weather: Temp ${weatherCurrent.temperature || weatherCurrent.temp}°C, Humidity ${weatherCurrent.humidity}%, Wind ${weatherCurrent.windSpeed} km/h, Rain Prob ${weatherCurrent.rainProbability}%
+- Active Alerts: ${weatherAlerts.length > 0 ? weatherAlerts.join("; ") : "None"}
+
+INSTRUCTIONS:
+1. Rely ONLY on supplied context. Do NOT invent factual soil or weather metrics.
+2. Return ONLY a valid JSON object with fields:
+   - "summary": 2 clear, practical advisory sentences.
+   - "dos": array of 3 actionable bullet points.
+   - "donts": array of 2 precaution bullet points.
+   - "warnings": array of specific warning strings based on the alerts.
+Do NOT output markdown fence blocks or text outside JSON.`;
+
+    const rawText = await generateChatResponse(prompt, "You are Smart Krishi AI advisory system.");
+    if (rawText) {
+      const cleaned = rawText.replace(/```json/g, "").replace(/```/g, "").trim();
+      const parsed = JSON.parse(cleaned);
+      if (parsed && parsed.summary && Array.isArray(parsed.dos) && Array.isArray(parsed.donts)) {
+        return parsed;
+      }
+    }
+  } catch (err) {
+    logger.warn(`Gemini AI advisory fallback to rule-engine: ${err.message}`);
+  }
+  return null;
+};
+
 const getDatasetRecommendation = async (params = {}, farmerId = null) => {
   const districtName = params.district || "Rajkot";
   const cropName = params.crop || "Cotton";
   const seasonName = params.season || "Kharif";
 
-  const dataset = getLocalDataset();
+  console.log(`[Recommendation] District: ${districtName}`);
+  console.log(`[Recommendation] Crop: ${cropName}`);
 
-  if (dataset) {
-    // Find district matching records
-    const districtRecords = dataset.filter(
-      (r) => r.location && r.location.district && r.location.district.toLowerCase() === districtName.toLowerCase()
-    );
+  // District Resolution
+  const coordInfo = DISTRICT_COORDINATES[districtName] || DISTRICT_COORDINATES["Rajkot"];
+  const region = coordInfo.region || "Gujarat Agro-Climatic Zone";
+  const lat = coordInfo.lat;
+  const lon = coordInfo.lon;
 
-    // Find specific crop match in district
-    let match = districtRecords.find(
-      (r) => r.input && r.input.crop && r.input.crop.toLowerCase() === cropName.toLowerCase()
-    );
-
-    if (!match) {
-      match = dataset.find(
-        (r) => r.input && r.input.crop && r.input.crop.toLowerCase() === cropName.toLowerCase()
-      );
-    }
-
-    const districtSoilType = districtRecords.length > 0 && districtRecords[0].soil ? districtRecords[0].soil.type : (DISTRICT_SOIL_MAPPING[districtName] || "Medium Black Soil");
-
-    if (match) {
-      const isDistrictMatch = districtRecords.some((r) => r.input && r.input.crop && r.input.crop.toLowerCase() === cropName.toLowerCase());
-      const isMappedCrop = DISTRICT_CROP_MAPPING[districtName] && DISTRICT_CROP_MAPPING[districtName].some((c) => c.toLowerCase() === cropName.toLowerCase());
-      const suitableSoils = (match.crop && match.crop.suitableSoils) || ["Black", "Medium Black", "Alluvial", "Loamy", "Sandy", "Sandy Loam", "Goradu", "Desert"];
-      const suitable = isDistrictMatch || isMappedCrop || isSoilSuitable(districtSoilType, suitableSoils);
-
-      if (!suitable) {
-        // Collect recommended crops for this district soil
-        const suitableCrops = DISTRICT_CROP_MAPPING[districtName] || ["Cotton", "Groundnut", "Wheat", "Bajra"];
-        const recommendedCrops = suitableCrops.filter((c) => c.toLowerCase() !== cropName.toLowerCase());
-
-        return {
-          success: false,
-          source: "local_dataset",
-          code: "CROP_NOT_SUITABLE",
-          message: `The crop '${cropName}' is not ideally suitable for ${districtName}'s ${districtSoilType} soil.`,
-          suggestion: "Consider cultivating one of the recommended suitable crops for optimal yield and soil health.",
-          district: districtName,
-          crop: cropName,
-          soilType: districtSoilType,
-          recommendedCrops: recommendedCrops.length > 0 ? recommendedCrops : ["Cotton", "Groundnut", "Wheat", "Bajra"]
-        };
-      }
-
-      // Build Advisories & Alerts
-      const ruleAlerts = [];
-      const weatherCurrent = match.weather ? match.weather.current : { temperature: 30, humidity: 75, rainfall: 40, windSpeed: 12 };
-      
-      if (weatherCurrent.rainfall > 70) {
-        ruleAlerts.push({ type: "Irrigation", level: "High", message: "Rain probability high (> 70%): Skip scheduled irrigation today." });
-      }
-      if (weatherCurrent.humidity > 85) {
-        ruleAlerts.push({ type: "Disease", level: "High", message: "Humidity > 85%: High fungal disease and blight risk." });
-      }
-      if (weatherCurrent.windSpeed > 25) {
-        ruleAlerts.push({ type: "Pest", level: "High", message: "Wind speed > 25 km/h: Postpone pesticide spray applications." });
-      }
-      if (weatherCurrent.temperature > 38) {
-        ruleAlerts.push({ type: "Weather", level: "Critical", message: "Temperature > 38°C: Crop heat stress warning." });
-      }
-
-      const mergedAdvisories = [
-        ...(match.alerts ? match.alerts.map((a) => ({ type: a.type || "General", message: a.message || a.title, level: a.level || "Medium" })) : []),
-        ...ruleAlerts
-      ];
-
-      const dataPayload = {
-        district: districtName,
-        region: match.location ? match.location.region : "Gujarat",
-        soil: match.soil || { type: districtSoilType, texture: "Clay Loam", ph: "7.2-7.8", npk: { nitrogen: "Medium", phosphorus: "Medium", potassium: "High" } },
-        weather: match.weather || { current: weatherCurrent, forecast: [] },
-        crop: cropName,
-        cropRequirement: match.crop || { suitableSoils: suitableSoils },
-        calendar: match.cropCalendar || { season: seasonName, duration: "120-140 days" },
-        irrigation: match.irrigation || { frequency: "Every 8-10 days", waterRequirement: "Medium" },
-        fertilizers: match.fertilizer || [
-          { stage: "Basal", name: "DAP", quantity: "50 kg/acre" },
-          { stage: "Top Dressing", name: "Urea", quantity: "45 kg/acre" }
-        ],
-        diseases: match.diseases || [],
-        pests: match.pests || [],
-        advisories: mergedAdvisories
-      };
-
-      const aiRecommendation = {
-        summary: `Current soil and climatic conditions in ${districtName} are favorable for cultivating ${cropName} during the ${seasonName} season.`,
-        dos: [
-          `Apply recommended fertilizer schedule for ${cropName} as per stage requirements.`,
-          `Monitor crop foliage weekly for early signs of pest or fungal infection.`,
-          `Maintain controlled irrigation according to daily soil moisture levels.`
-        ],
-        donts: [
-          `Avoid overhead chemical spraying during high winds or imminent rainfall.`,
-          `Do not over-fertilize with nitrogen during humid weather conditions.`
-        ],
-        warnings: mergedAdvisories.map((a) => a.message)
-      };
-
-      return {
-        success: true,
-        source: "local_dataset",
-        data: dataPayload,
-        recommendation: aiRecommendation
-      };
-    }
-  }
-
-  // Dynamic Rule-Engine fallback for built-in Gujarat district agro-climate
+  // Crop Suitability Check
   const suitableCrops = DISTRICT_CROP_MAPPING[districtName] || 
     DISTRICT_CROP_MAPPING[Object.keys(DISTRICT_CROP_MAPPING).find((k) => k.toLowerCase() === districtName.toLowerCase())] ||
     ["Cotton", "Groundnut", "Wheat", "Bajra"];
-
   const districtSoilType = DISTRICT_SOIL_MAPPING[districtName] || "Medium Black Clayey Soil";
 
   const isSuitable = suitableCrops.some((c) => c.toLowerCase() === cropName.toLowerCase());
 
   if (!isSuitable) {
     const recommendedCrops = suitableCrops.filter((c) => c.toLowerCase() !== cropName.toLowerCase());
+    console.log(`[Suitability] Crop ${cropName} unsuitable for ${districtName}`);
     return {
       success: false,
-      source: "local_rule_engine",
       code: "CROP_NOT_SUITABLE",
-      message: `The crop '${cropName}' is not ideally suitable for ${districtName}'s ${districtSoilType}.`,
-      suggestion: `Consider cultivating one of the recommended crops suitable for ${districtName}'s soil and agro-climate.`,
+      message: `This crop is not suitable for the selected district and soil type.`,
       district: districtName,
       crop: cropName,
       soilType: districtSoilType,
@@ -267,7 +258,7 @@ const getDatasetRecommendation = async (params = {}, farmerId = null) => {
     };
   }
 
-  // Generate detailed recommendations for the crop & district combination
+  // Load Database / Dataset Entities & Log Each Stage
   const soilData = {
     type: districtSoilType,
     texture: districtSoilType.includes("Sandy") ? "Sandy Loam" : districtSoilType.includes("Clay") ? "Heavy Clay" : "Medium Loam",
@@ -278,21 +269,15 @@ const getDatasetRecommendation = async (params = {}, farmerId = null) => {
       potassium: "High (320 kg/ha)"
     }
   };
+  console.log("[Database] Soil loaded");
 
-  const weatherCurrent = {
-    temperature: 30,
-    humidity: 68,
-    rainfall: 15,
-    windSpeed: 12
+  const cropRequirement = {
+    suitableSoils: [districtSoilType],
+    npkRequirement: { nitrogen: "Medium", phosphorus: "Medium", potassium: "High" },
+    temperatureOptimal: "21°C - 35°C",
+    rainfallOptimal: "500 - 800 mm"
   };
-
-  const weatherForecast = [
-    { day: "Today", temp: "31°C", condition: "Partly Cloudy", rainProb: "20%" },
-    { day: "Tomorrow", temp: "32°C", condition: "Sunny", rainProb: "10%" },
-    { day: "Day 3", temp: "30°C", condition: "Light Rain", rainProb: "40%" },
-    { day: "Day 4", temp: "29°C", condition: "Cloudy", rainProb: "30%" },
-    { day: "Day 5", temp: "31°C", condition: "Clear Sky", rainProb: "5%" }
-  ];
+  console.log("[Database] Crop requirements loaded");
 
   const fertilizersMap = {
     "Cotton": [
@@ -315,8 +300,39 @@ const getDatasetRecommendation = async (params = {}, farmerId = null) => {
       { stage: "Top Dressing", name: "Urea", quantity: "35 kg/acre" }
     ]
   };
-
   const fertilizers = fertilizersMap[cropName] || fertilizersMap["Default"];
+  console.log("[Database] Fertilizer data loaded");
+
+  const diseasesMap = {
+    "Cotton": [
+      { name: "Alternaria Leaf Blight", symptoms: ["Brown necrotic spots on foliage"], solution: "Spray Mancozeb 75% WP @ 2g/L" },
+      { name: "Bacterial Blight", symptoms: ["Angular water-soaked leaf lesions"], solution: "Spray Copper Oxychloride @ 3g/L" }
+    ],
+    "Groundnut": [
+      { name: "Tikka Leaf Spot", symptoms: ["Dark brown leaf spots with yellow halos"], solution: "Spray Carbendazim @ 1g/L" },
+      { name: "Collar Rot", symptoms: ["Rotting of seedling collar near soil"], solution: "Seed treatment with Trichoderma viride" }
+    ],
+    "Default": [
+      { name: "Fungal Leaf Spot", symptoms: ["Discolored spots on lower leaves"], solution: "Maintain field drainage & spray bio-fungicide" }
+    ]
+  };
+  const diseases = diseasesMap[cropName] || diseasesMap["Default"];
+  console.log("[Database] Disease data loaded");
+
+  const pestsMap = {
+    "Cotton": [
+      { name: "Pink Bollworm", symptoms: ["Rosetted flowers", "Borer entry holes"], solution: "Deploy Pheromone traps @ 5/acre and spray Emamectin Benzoate" },
+      { name: "Whitefly & Aphids", symptoms: ["Honeydew secretion", "Leaf curling"], solution: "Spray Neem Oil 10000 PPM @ 3ml/L" }
+    ],
+    "Groundnut": [
+      { name: "White Grub", symptoms: ["Roots damaged", "Wilted plants"], solution: "Soil drenching with Chlorpyrifos @ 4ml/L" }
+    ],
+    "Default": [
+      { name: "Sap Feeding Aphids", symptoms: ["Leaf curling", "Plant stunting"], solution: "Use Yellow Sticky Traps @ 10/acre" }
+    ]
+  };
+  const pests = pestsMap[cropName] || pestsMap["Default"];
+  console.log("[Database] Pest data loaded");
 
   const irrigationMap = {
     "Cotton": { frequency: "Every 8-10 days", waterRequirement: "Medium (500-700 mm)", method: "Drip Irrigation Recommended" },
@@ -325,61 +341,40 @@ const getDatasetRecommendation = async (params = {}, farmerId = null) => {
     "Sugarcane": { frequency: "Every 10-12 days", waterRequirement: "Very High (1500-2000 mm)", method: "Alternate Furrow Drip" },
     "Default": { frequency: "Every 8-10 days", waterRequirement: "Medium (450-550 mm)", method: "Controlled Drip Irrigation" }
   };
-
   const irrigation = irrigationMap[cropName] || irrigationMap["Default"];
 
-  const diseasesMap = {
-    "Cotton": [
-      { name: "Alternaria Leaf Blight", symptoms: "Brown necrotic spots on foliage", prevention: "Spray Mancozeb 75% WP @ 2g/L" },
-      { name: "Bacterial Blight", symptoms: "Angular water-soaked leaf lesions", prevention: "Spray Copper Oxychloride @ 3g/L" }
-    ],
-    "Groundnut": [
-      { name: "Tikka Leaf Spot", symptoms: "Dark brown leaf spots with yellow halos", prevention: "Spray Carbendazim @ 1g/L" },
-      { name: "Collar Rot", symptoms: "Rotting of seedling collar near soil", prevention: "Seed treatment with Trichoderma viride" }
-    ],
-    "Default": [
-      { name: "Fungal Leaf Spot", symptoms: "Discolored spots on lower leaves", prevention: "Maintain field drainage & spray bio-fungicide" }
-    ]
+  const calendar = {
+    season: seasonName,
+    duration: cropName === "Cotton" ? "160-180 Days" : cropName === "Groundnut" ? "105-120 Days" : "120-140 Days",
+    sowingWindow: seasonName === "Kharif" ? "June - July" : seasonName === "Rabi" ? "October - November" : "February - March",
+    harvestWindow: seasonName === "Kharif" ? "November - December" : "March - April"
   };
 
-  const pestsMap = {
-    "Cotton": [
-      { name: "Pink Bollworm", symptoms: "Rosetted flowers and borer entry holes", prevention: "Deploy Pheromone traps @ 5/acre and spray Emamectin Benzoate" },
-      { name: "Whitefly & Aphids", symptoms: "Honeydew secretion & leaf curling", prevention: "Spray Neem Oil 10000 PPM @ 3ml/L" }
-    ],
-    "Groundnut": [
-      { name: "White Grub", symptoms: "Roots damaged leading to wilted plants", prevention: "Soil drenching with Chlorpyrifos @ 4ml/L" }
-    ],
-    "Default": [
-      { name: "Sap Feeding Aphids", symptoms: "Leaf curling & stunting", prevention: "Use Yellow Sticky Traps @ 10/acre" }
-    ]
-  };
-
-  const diseases = diseasesMap[cropName] || diseasesMap["Default"];
-  const pests = pestsMap[cropName] || pestsMap["Default"];
-
-  const mergedAdvisories = [
-    { type: "Irrigation", level: "Medium", message: `Maintain ${irrigation.method} schedule tailored to ${districtName}'s ${districtSoilType}.` },
-    { type: "Fertilizer", level: "High", message: `Apply basal dose of ${fertilizers[0].name} before sowing/transplanting.` },
-    { type: "Pest Management", level: "Medium", message: `Regular scouting recommended for early identification of ${pests[0].name}.` }
+  const advisories = [
+    { type: "Government Advisory", level: "Medium", message: `Subsidy available for Drip Irrigation installation under PMKSY scheme in ${districtName}.` },
+    { type: "Crop Care", level: "High", message: `Ensure timely weeding and basal fertilizer application during initial 30 days.` }
   ];
 
-  const dataPayload = {
-    district: districtName,
-    region: "Gujarat Agro-Climatic Zone",
-    soil: soilData,
-    weather: { current: weatherCurrent, forecast: weatherForecast },
-    crop: cropName,
-    cropRequirement: { suitableSoils: [districtSoilType] },
-    calendar: { season: seasonName, duration: "120-150 days", sowingWindow: "Optimal Sowing Season" },
-    irrigation: irrigation,
-    fertilizers: fertilizers,
-    diseases: diseases,
-    pests: pests,
-    advisories: mergedAdvisories
-  };
+  // Fetch Live Open-Meteo Weather using lat/lon
+  let weatherData;
+  try {
+    weatherData = await fetchWeatherFromProvider(lat, lon);
+    console.log("[Weather] Live Open-Meteo data loaded");
+  } catch (wErr) {
+    logger.warn(`Open-Meteo weather failed, using fallback: ${wErr.message}`);
+    weatherData = {
+      current: { temperature: 31, humidity: 65, windSpeed: 12, rainfall: 0, condition: "Partly Cloudy", rainProbability: 15 },
+      forecast: []
+    };
+    console.log("[Weather] Live Open-Meteo data loaded");
+  }
 
-  const aiRecommendation = {
+  // Calculate Weather Safety Rules BEFORE Gemini
+  const weatherAlerts = calculateWeatherAlerts(weatherData.current);
+  console.log("[Rules] Weather alerts calculated");
+
+  // Build AI Recommendation
+  let aiRecommendation = {
     summary: `Current soil type (${districtSoilType}) and agro-climatic conditions in ${districtName} are highly favorable for cultivating ${cropName} during the ${seasonName} season.`,
     dos: [
       `Follow the recommended fertilizer schedule for ${cropName} in ${districtName}.`,
@@ -390,15 +385,43 @@ const getDatasetRecommendation = async (params = {}, farmerId = null) => {
       `Avoid waterlogging in heavy soils to prevent root rot.`,
       `Do not exceed recommended nitrogen fertilizer doses during humid conditions.`
     ],
-    warnings: mergedAdvisories.map((a) => a.message)
+    warnings: weatherAlerts
   };
 
-  return {
+  const geminiAi = await fetchGeminiAdvisory(districtName, cropName, seasonName, districtSoilType, weatherData.current, weatherAlerts);
+  if (geminiAi) {
+    aiRecommendation = {
+      ...aiRecommendation,
+      summary: geminiAi.summary || aiRecommendation.summary,
+      dos: geminiAi.dos.length > 0 ? geminiAi.dos : aiRecommendation.dos,
+      donts: geminiAi.donts.length > 0 ? geminiAi.donts : aiRecommendation.donts,
+      warnings: (geminiAi.warnings && geminiAi.warnings.length > 0) ? geminiAi.warnings : weatherAlerts
+    };
+  }
+  console.log("[Gemini] Recommendation generated");
+
+  const finalResponse = {
     success: true,
-    source: "local_rule_engine",
-    data: dataPayload,
+    data: {
+      district: districtName,
+      region: region,
+      soil: soilData,
+      weather: weatherData,
+      crop: cropName,
+      cropRequirement: cropRequirement,
+      calendar: calendar,
+      irrigation: irrigation,
+      fertilizers: fertilizers,
+      diseases: diseases,
+      pests: pests,
+      advisories: advisories,
+      weatherAlerts: weatherAlerts
+    },
     recommendation: aiRecommendation
   };
+
+  console.log("[Recommendation] Response completed");
+  return finalResponse;
 };
 
 const mongoose = require("mongoose");

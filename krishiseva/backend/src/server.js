@@ -12,11 +12,9 @@ const startServer = async () => {
     logger.info(`KrishiSeva Backend Server running in [${env.NODE_ENV}] mode on port: ${env.PORT}`);
   });
 
-  // Handle unhandled promise rejections
+  // Handle unhandled promise rejections without crashing server
   process.on("unhandledRejection", (err) => {
-    logger.error(`Unhandled Rejection Error: ${err.message}`);
-    // Close server & exit process
-    server.close(() => process.exit(1));
+    logger.error(`Unhandled Rejection Error logged: ${err.message}`);
   });
 };
 

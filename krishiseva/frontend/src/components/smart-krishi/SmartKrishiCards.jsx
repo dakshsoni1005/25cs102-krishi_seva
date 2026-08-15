@@ -480,3 +480,43 @@ export const WeatherAlertsCard = ({ alerts }) => {
   );
 };
 
+// 12. CROP CALENDAR CARD
+export const CalendarCard = ({ calendar }) => {
+  if (!calendar) return null;
+
+  return (
+    <Card className="bg-white border border-slate-200/80 p-5 rounded-3xl shadow-2xs hover:shadow-xs transition-all">
+      <div className="flex items-center gap-2.5 border-b border-slate-100 pb-3.5 mb-4">
+        <div className="p-2.5 bg-emerald-500/10 text-emerald-700 rounded-xl">
+          <Calendar className="w-5 h-5" />
+        </div>
+        <h3 className="font-extrabold text-sm text-slate-900 leading-none">Crop Growth & Season Calendar</h3>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div className="bg-emerald-50/60 p-3.5 rounded-2xl border border-emerald-100">
+          <span className="text-[10px] font-extrabold text-emerald-900 uppercase tracking-wider block">Cropping Season</span>
+          <p className="text-xs font-black text-slate-900 m-0 mt-1">{calendar.season || "Kharif"}</p>
+        </div>
+        <div className="bg-emerald-50/60 p-3.5 rounded-2xl border border-emerald-100">
+          <span className="text-[10px] font-extrabold text-emerald-900 uppercase tracking-wider block">Growth Duration</span>
+          <p className="text-xs font-black text-slate-900 m-0 mt-1">{calendar.duration || "120-140 Days"}</p>
+        </div>
+        {calendar.sowingWindow && (
+          <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
+            <span className="text-[10px] font-extrabold text-slate-700 uppercase tracking-wider block">Sowing Window</span>
+            <p className="text-xs font-black text-slate-900 m-0 mt-1">{calendar.sowingWindow}</p>
+          </div>
+        )}
+        {calendar.harvestWindow && (
+          <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
+            <span className="text-[10px] font-extrabold text-slate-700 uppercase tracking-wider block">Harvesting Window</span>
+            <p className="text-xs font-black text-slate-900 m-0 mt-1">{calendar.harvestWindow}</p>
+          </div>
+        )}
+      </div>
+    </Card>
+  );
+};
+
+

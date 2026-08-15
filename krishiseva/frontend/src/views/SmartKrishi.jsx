@@ -13,7 +13,8 @@ import {
   DiseaseCard,
   PestCard,
   AdvisoryCard,
-  WeatherAlertsCard
+  WeatherAlertsCard,
+  CalendarCard
 } from "../components/smart-krishi/SmartKrishiCards";
 import { getRecommendations } from "../services/smartKrishiService";
 import { HelpCircle, AlertOctagon } from "lucide-react";
@@ -43,7 +44,7 @@ export const SmartKrishi = () => {
           soilType: res.soilType,
           recommendedCrops: res.recommendedCrops || []
         });
-      } else if (res && (res.success || res.data)) {
+      } else if (res && (res.success || res.data || res.recommendation)) {
         setResult(res);
       } else {
         setError("Failed to fetch recommendation data.");
@@ -70,6 +71,9 @@ export const SmartKrishi = () => {
       handleFormSubmit({ ...queryParams, crop: cropName });
     }
   };
+
+  const reportData = result?.data || result || {};
+  const recommendationData = result?.recommendation || reportData?.recommendation;
 
   return (
     <div className="space-y-8 select-none pb-12">
@@ -111,34 +115,35 @@ export const SmartKrishi = () => {
         )}
 
         {/* Results Output Grid */}
-        {result && result.data && (
+        {result && (reportData.soil || recommendationData) && (
           <div className="space-y-6">
             {/* AI Advisor Panel */}
-            <AIRecommendationCard recommendation={result.recommendation} />
+            <AIRecommendationCard recommendation={recommendationData} />
 
             {/* Weather Alerts */}
-            {result.data.weatherAlerts && result.data.weatherAlerts.length > 0 && (
-              <WeatherAlertsCard alerts={result.data.weatherAlerts} />
+            {reportData.weatherAlerts && reportData.weatherAlerts.length > 0 && (
+              <WeatherAlertsCard alerts={reportData.weatherAlerts} />
             )}
 
             {/* Warnings & Advisories */}
-            {result.data.advisories && (
-              <AdvisoryCard advisories={result.data.advisories} />
+            {reportData.advisories && reportData.advisories.length > 0 && (
+              <AdvisoryCard advisories={reportData.advisories} />
             )}
 
             {/* Environmental Parameters Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-              <SoilCard soil={result.data.soil} />
-              <WeatherCard weather={result.data.weather} />
-              <FertilizerCard fertilizers={result.data.fertilizers} />
-              <IrrigationCard irrigation={result.data.irrigation} />
-              <DiseaseCard diseases={result.data.diseases} />
-              <PestCard pests={result.data.pests} />
+              <SoilCard soil={reportData.soil} />
+              <WeatherCard weather={reportData.weather} />
+              <CalendarCard calendar={reportData.calendar} />
+              <FertilizerCard fertilizers={reportData.fertilizers} />
+              <IrrigationCard irrigation={reportData.irrigation} />
+              <DiseaseCard diseases={reportData.diseases} />
+              <PestCard pests={reportData.pests} />
               
               {/* Weather 7-Day Forecast */}
-              {result.data.weather && result.data.weather.forecast && (
+              {reportData.weather && reportData.weather.forecast && (
                 <div className="md:col-span-2">
-                  <ForecastCard forecast={result.data.weather.forecast} />
+                  <ForecastCard forecast={reportData.weather.forecast} />
                 </div>
               )}
             </div>
